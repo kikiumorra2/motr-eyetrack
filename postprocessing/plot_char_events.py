@@ -12,7 +12,8 @@ Trial selection: --item ITEM [--condition COND] [--submission ID] or --trial K (
 row found, default 0); --list prints the available trials.
 
 Panels:
-  1. reconstructed scanpath: character under the pointer vs time (words as bands); gaps where
+  1. reconstructed scanpath: character under the pointer vs time since the first mouse
+     movement (words as bands); gaps where
      the pointer was on no word / outside the text; layout / visibility markers; the legacy
      50 ms rows overlaid when the same trial also has them ("both" mode)
   2. the recorded layout: character boxes coloured by dwell time, raw pointer trace coloured
@@ -149,6 +150,10 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
     offsets = ce.span_offsets(words)
     t0 = int(stats.get("t0", 0))
     T_end = events[-1]["T"] if events else 0
+    # Times are shown relative to the first mouse movement (the first raw sample; without a
+    # trace, the first recorded change), like the legacy readingTime, not to the moment the
+    # screen appeared — participants often pause before they start moving.
+    t_first = trace[0]["T"] if trace else (events[0]["T"] if events else 0)
     char_dwell, runs = dwell_by_state(events)
     wdwell = word_dwell(char_dwell, offsets, len(words))
     nbytes = sum(len(v) for v in fields.values())
@@ -171,7 +176,7 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
     ax_dt = fig.add_subplot(gs[2, 2])
 
     # ---- 1. scanpath timeline ------------------------------------------------
-    sec = lambda T: T / 1000.0  # noqa: E731
+    sec = lambda T: (T - t_first) / 1000.0  # noqa: E731
     for i, w in enumerate(words):
         lo, hi = offsets[i], offsets[i + 1]
         ax_time.axhspan(lo, hi, color="0.93" if i % 2 else "0.98", lw=0)
@@ -222,8 +227,8 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
     ax_time.set_yticks(ticks[::step])
     ax_time.set_yticklabels(words[::step], fontsize=8)
     ax_time.set_ylim(-3, offsets[-1])
-    ax_time.set_xlim(0, sec(T_end) * 1.02 if T_end else 1)
-    ax_time.set_xlabel("time since recording start (s)")
+    ax_time.set_xlim(0, sec(T_end) * 1.02 if T_end > t_first else 1)
+    ax_time.set_xlabel("time since first mouse movement (s)")
     ax_time.set_ylabel("word / character")
     ax_time.legend(loc="upper left", fontsize=8, framealpha=0.9)
     ax_time.set_title("Reconstructed scanpath (each step = the pointer moved onto another character; shading: no word / outside text)", fontsize=10)
@@ -249,13 +254,13 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
                                 ha="center", va="center", fontsize=7, color="0.25")
     if trace:
         pts = np.array([[p["x"], p["y"]] for p in trace])
-        tt = np.array([p["T"] for p in trace])
+        tt = np.array([p["T"] - t_first for p in trace])
         segs = np.stack([pts[:-1], pts[1:]], axis=1)
-        lc = LineCollection(segs, cmap="viridis", norm=Normalize(0, T_end or 1), lw=1.2, alpha=0.9)
+        lc = LineCollection(segs, cmap="viridis", norm=Normalize(0, max(T_end - t_first, 1)), lw=1.2, alpha=0.9)
         lc.set_array(tt[:-1])
         ax_lay.add_collection(lc)
         cb = fig.colorbar(lc, ax=ax_lay, pad=0.01, fraction=0.03)
-        cb.set_label("trace time (ms)")
+        cb.set_label("trace time since first movement (ms)")
     else:
         ax_lay.text(0.5, 0.02, "no raw trace recorded (positions synthesised from character boxes)",
                     transform=ax_lay.transAxes, ha="center", fontsize=8, color="0.4")
@@ -306,7 +311,8 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
     info = (f"item {row.get('ItemId')} / {row.get('Condition')} — {len(words)} words · {stats.get('ne')} events · "
             f"{stats.get('n')} pointer samples · {len(snapshots)} layout(s) · {nbytes} bytes · "
             f"mindt {stats.get('mindt')} ms · coalesced {stats.get('coal')} · handler max {stats.get('hmax')} µs · "
-            f"reading {T_end / 1000:.2f} s" + ("  ⚠ TRUNCATED" if stats.get("trunc") else ""))
+            f"first movement after {t_first / 1000:.2f} s · reading {(T_end - t_first) / 1000:.2f} s"
+            + ("  ⚠ TRUNCATED" if stats.get("trunc") else ""))
     fig.suptitle(info, fontsize=10)
 
     if out:
