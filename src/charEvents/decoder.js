@@ -18,11 +18,11 @@ export function wordsOf(text) {
 
 export function decodeRow(fields) {
   parseFormatId(fields.mtFormat);
-  const stats = decodeStats(fields.mtStats ?? "");
-  const snapshots = decodeLayout(fields.mtLayout ?? "");
-  const events = decodeEvents(fields.mtEvents ?? "");
+  const stats = decodeStats(fields.mtStats == null ? "" : fields.mtStats);
+  const snapshots = decodeLayout(fields.mtLayout == null ? "" : fields.mtLayout);
+  const events = decodeEvents(fields.mtEvents == null ? "" : fields.mtEvents);
   const px = stats.px > 0 ? stats.px : 1;
-  const trace = decodeTrace(fields.mtTrace ?? "", px);
+  const trace = decodeTrace(fields.mtTrace == null ? "" : fields.mtTrace, px);
   snapshots.forEach((s, i) => {
     if (s.id !== i) throw new FormatError(`snapshot ids must be 0..n-1 in order (got ${s.id} at ${i})`);
   });
@@ -75,7 +75,7 @@ function legacyRow(base, t0, T, Index, xy) {
  */
 export function expandToLegacyRows(fields, words, base = {}) {
   const decoded = decodeRow(fields);
-  const t0 = decoded.stats.t0 ?? 0;
+  const t0 = decoded.stats.t0 == null ? 0 : decoded.stats.t0;
   const rows = [];
   for (const { ev, snap, info, xy } of walk(decoded, words)) {
     if (ev.kind === "c") {
@@ -99,7 +99,7 @@ export function expandToLegacyRows(fields, words, base = {}) {
 /** One record per event, with character detail (for char-level analyses). */
 export function charTable(fields, words, base = {}) {
   const decoded = decodeRow(fields);
-  const t0 = decoded.stats.t0 ?? 0;
+  const t0 = decoded.stats.t0 == null ? 0 : decoded.stats.t0;
   const out = [];
   for (const { ev, snap, info, xy } of walk(decoded, words)) {
     out.push({
@@ -130,7 +130,7 @@ export function charTable(fields, words, base = {}) {
 export function resample(fields, words, intervalMs, phase = 0, base = {}) {
   if (!(intervalMs > 0)) throw new RangeError("intervalMs must be > 0");
   const decoded = decodeRow(fields);
-  const t0 = decoded.stats.t0 ?? 0;
+  const t0 = decoded.stats.t0 == null ? 0 : decoded.stats.t0;
   const steps = [...walk(decoded, words)];
   const end = steps.find((s) => s.ev.kind === "e");
   const Tend = end ? end.ev.T : (steps.length ? steps[steps.length - 1].ev.T : 0);
