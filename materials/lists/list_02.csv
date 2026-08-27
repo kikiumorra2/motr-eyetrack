@@ -1,0 +1,5 @@
+item_id,condition_id,text,question,options,correct
+1,obj_rc,The reporter that the senator attacked admitted the error.,,,
+2,subj_rc,The lawyer that praised the witness ignored the judge.,,,
+3,obj_rc,The nurse that the doctor helped forgot the appointment.,,,
+4,subj_rc,The teacher that scolded the student called the parents.,,,

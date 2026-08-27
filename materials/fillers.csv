@@ -1,0 +1,7 @@
+item_id,condition_id,text,question,options,correct
+f1,filler,The spy monitored a politician for several months.,,,
+f2,filler,The commissioner wrote a report for the chairman.,,,
+f3,filler,The children played in the garden until it got dark.,Did the children play indoors?,Yes|No,No
+f4,filler,The old bridge was closed for repairs last summer.,,,
+f5,filler,My neighbor bought a red bicycle at the market.,What color was the bicycle?,Red|Blue|Green,Red
+f6,filler,The orchestra performed two symphonies on Friday evening.,,,
