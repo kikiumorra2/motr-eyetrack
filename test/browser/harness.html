@@ -93,7 +93,11 @@ window.motr = {
     window.recorder.end(performance.now());
     const fields = window.recorder.fields();
     const decoded = decodeRow(fields);
-    return { fields, events: decoded.events, stats: decoded.stats, nTrace: decoded.trace.length,
+    // `row` is a complete charEvents row: copy(JSON.stringify([out.row])) → rows.json for
+    // postprocessing/plot_char_events.py --rows rows.json
+    const row = { Experiment: "harness", Condition: "harness", ItemId: "1", TrialType: "charEvents",
+                  TrialText: window.recorder.words.join(" "), ...fields };
+    return { fields, row, events: decoded.events, stats: decoded.stats, nTrace: decoded.trace.length,
              nSnapshots: decoded.snapshots.length, rows: expandToLegacyRows(fields, window.recorder.words).length };
   },
   snapshotCount: () => window.recorder.snapshots.length,

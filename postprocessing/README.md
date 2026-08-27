@@ -68,9 +68,18 @@ multiples of 50 ms and short excursions onto a neighbouring word are no longer m
 word-level measures to differ slightly from a 20 Hz study; `--resample 50` gives the
 apples-to-apples numbers. `mtStats` in the raw row records per-trial diagnostics (`coal`:
 coalesced events available, `mindt`: smallest inter-sample interval, `hmax`: slowest handler
-call in µs, `trunc`: event cap hit). To sanity-check a browser session, paste the console
-output of a debug-mode trial into a JSON file and run
-`python3 postprocessing/motr_char_events.py --check rows.json`.
+call in µs, `trunc`: event cap hit). To look at a session recorded locally (`mode: "debug"` in
+`src/magpie.config.js`, `npm run serve`): the app collects every row in `window.__motrRows`;
+in the browser console run `copy(JSON.stringify(window.__motrRows))`, paste into `rows.json`,
+then
+
+```bash
+python3 postprocessing/plot_char_events.py --rows rows.json --list          # trials in the file
+python3 postprocessing/plot_char_events.py --rows rows.json --item 3 --show  # scanpath, dwell heatmap, trace, diagnostics
+python3 postprocessing/motr_char_events.py --check rows.json                 # decode + agreement with legacy rows ("both" mode)
+```
+
+`plot_char_events.py --csv export.csv` does the same for a server export or a simulated one.
 
 ## What the output contains
 

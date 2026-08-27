@@ -7,12 +7,20 @@
  * To use a different backend, change serverUrl (any magpie server works as is) or replace
  * the body of this function with your own request.
  *
- * In debug mode nothing is sent; the rows are printed to the browser console instead.
+ * In debug mode nothing is sent; the rows are printed to the browser console and collected
+ * in window.__motrRows, so a whole session can be saved from the console with
+ *     copy(JSON.stringify(window.__motrRows))
+ * (paste into rows.json for postprocessing/plot_char_events.py or motr_char_events.py --check).
  */
 export async function submitRows(magpie, rows, label) {
   if (!rows.length) return;
   if (magpie.debug) {
-    console.log(`[MoTR] debug mode: not submitting ${rows.length} rows (${label})`, rows);
+    const store = (window.__motrRows = window.__motrRows || []);
+    store.push(...rows);
+    console.log(
+      `[MoTR] debug mode: not submitting ${rows.length} rows (${label}); ${store.length} rows collected in window.__motrRows`,
+      rows
+    );
     return;
   }
   try {
