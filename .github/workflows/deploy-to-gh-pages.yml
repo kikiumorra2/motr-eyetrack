@@ -5,6 +5,9 @@ on:
       - main
       - master
 
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     strategy:
@@ -53,13 +56,6 @@ jobs:
           cd ${{matrix.folder}}
           npm install
           npm run build
-
-      - name: Create branch
-        uses: peterjgrainger/action-create-branch@v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          branch: gh-pages
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
