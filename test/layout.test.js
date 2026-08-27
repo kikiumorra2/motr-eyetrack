@@ -35,29 +35,32 @@ test("span offsets and global <-> (i, k) mapping", () => {
   assert.deepEqual(spanOffsets([]), [0]);
 });
 
-test("half-open boundaries in x", () => {
-  // "The": T=[120,130) h=[130,140) e=[140,150) space=[150,160)
+test("1x1 px probe rule in x: a box is hit from 1 px left of its left edge, up to its right edge", () => {
+  // "The": T=[120,130) h=[130,140) e=[140,150) space=[150,160); right-most hit wins
+  assert.equal(hitState(IDX, OFF, 119, 190), NONE);            // probe [119,120) misses T
+  assert.equal(hitState(IDX, OFF, 119.01, 190), g(0, 1));      // probe reaches into T
   assert.equal(hitState(IDX, OFF, 120, 190), g(0, 1));
-  assert.equal(hitState(IDX, OFF, 129.99, 190), g(0, 1));
+  assert.equal(hitState(IDX, OFF, 129, 190), g(0, 1));         // probe [129,130) does not reach h
+  assert.equal(hitState(IDX, OFF, 129.01, 190), g(0, 2));      // straddles T|h → h wins
   assert.equal(hitState(IDX, OFF, 130, 190), g(0, 2));
-  assert.equal(hitState(IDX, OFF, 149.99, 190), g(0, 3));
-  assert.equal(hitState(IDX, OFF, 150, 190), g(0, 4));       // trailing space of "The"
-  assert.equal(hitState(IDX, OFF, 159.99, 190), g(0, 4));
-  assert.equal(hitState(IDX, OFF, 160, 190), g(1, 1));       // "c" of "cat"
-  assert.equal(hitState(IDX, OFF, 229.99, 190), g(2, 3));    // "t" of "sat"
-  assert.equal(hitState(IDX, OFF, 230, 190), NONE);          // past the line end, inside block
-  assert.equal(hitState(IDX, OFF, 119.99, 190), NONE);       // left of the first glyph
+  assert.equal(hitState(IDX, OFF, 149.01, 190), g(0, 4));      // trailing space of "The"
+  assert.equal(hitState(IDX, OFF, 159.01, 190), g(1, 1));      // straddles "The "|"cat" → cat
+  assert.equal(hitState(IDX, OFF, 159, 190), g(0, 4));
+  assert.equal(hitState(IDX, OFF, 229.99, 190), g(2, 3));      // last char of "sat" (no trailing space)
+  assert.equal(hitState(IDX, OFF, 230, 190), NONE);            // past the line end, inside block
 });
 
-test("half-open boundaries in y and the look-3px-above rule", () => {
-  assert.equal(hitState(IDX, OFF, 125, 180), g(0, 1));       // top inclusive
-  assert.equal(hitState(IDX, OFF, 125, 179.99), NONE);       // above the band, y-3 also misses
-  assert.equal(hitState(IDX, OFF, 125, 200.99), g(0, 1));    // bottom exclusive
-  assert.equal(hitState(IDX, OFF, 125, 201), g(0, 1));       // misses, but y-3 = 198 hits
-  assert.equal(hitState(IDX, OFF, 125, 203.99), g(0, 1));    // y-3 = 200.99 still hits
-  assert.equal(hitState(IDX, OFF, 125, 204), NONE);          // y-3 = 201 misses
-  assert.equal(hitState(IDX, OFF, 125, 219), NONE);          // gap between lines
-  assert.equal(hitState(IDX, OFF, 125, 220), g(3, 1));       // "w" on line 2
+test("1x1 px probe rule in y and the look-3px-above rule", () => {
+  assert.equal(hitState(IDX, OFF, 125, 179), NONE);            // probe [179,180) misses the band
+  assert.equal(hitState(IDX, OFF, 125, 179.01), g(0, 1));      // reaches the band top
+  assert.equal(hitState(IDX, OFF, 125, 180), g(0, 1));
+  assert.equal(hitState(IDX, OFF, 125, 200.99), g(0, 1));      // bottom exclusive
+  assert.equal(hitState(IDX, OFF, 125, 201), g(0, 1));         // misses, but y-3 = 198 hits
+  assert.equal(hitState(IDX, OFF, 125, 203.99), g(0, 1));      // y-3 = 200.99 still hits
+  assert.equal(hitState(IDX, OFF, 125, 204), NONE);            // y-3 = 201 misses
+  assert.equal(hitState(IDX, OFF, 125, 218), NONE);            // gap between lines
+  assert.equal(hitState(IDX, OFF, 125, 219.01), g(3, 1));      // probe reaches line 2's band (top 220)
+  assert.equal(hitState(IDX, OFF, 125, 220), g(3, 1));
 });
 
 test("zero-width leading spaces are never hit; wrapped word has two fragments", () => {
@@ -74,14 +77,16 @@ test("zero-width leading spaces are never hit; wrapped word has two fragments", 
   assert.equal(hitState(IDX, OFF, 175, 270), g(4, 1));                    // "o" of "on"
 });
 
-test("outside the block", () => {
-  assert.equal(hitState(IDX, OFF, 99.99, 190), OUT);
+test("outside the block (same probe rule on the block rect)", () => {
+  assert.equal(hitState(IDX, OFF, 99, 190), OUT);
+  assert.equal(hitState(IDX, OFF, 99.01, 190), NONE);
   assert.equal(hitState(IDX, OFF, 100, 190), NONE);
   assert.equal(hitState(IDX, OFF, 500, 190), OUT);
   assert.equal(hitState(IDX, OFF, 499.99, 190), NONE);
-  assert.equal(hitState(IDX, OFF, 125, 149.99), OUT);
+  assert.equal(hitState(IDX, OFF, 125, 149), OUT);
+  assert.equal(hitState(IDX, OFF, 125, 149.01), NONE);
   assert.equal(hitState(IDX, OFF, 125, 300), OUT);
-  assert.equal(hitState(IDX, OFF, 125, 152), NONE);
+  assert.equal(hitState(IDX, OFF, 125, 152), NONE);     // y-3 leaves the block: still NONE, not OUT
   assert.equal(hitState(IDX, OFF, NaN, 190), OUT);
 });
 
@@ -105,6 +110,7 @@ test("overlapping fragments resolve deterministically (right-most starting wins)
   const idx = buildIndex(t);
   assert.equal(hitState(idx, off, 27, 15), globalIndex(off, 1, 1)); // both contain 27; word 1 starts further right
   assert.equal(hitState(idx, off, 22, 15), globalIndex(off, 0, 2));
+  assert.equal(hitState(idx, off, 24.5, 15), globalIndex(off, 1, 1)); // probe [24.5,25.5) reaches word 1
   assert.equal(hitState(idx, off, 50, 15), globalIndex(off, 1, 3));
   // identical lefts: still deterministic
   const t2 = { block: [0, 0, 100, 100], words: [
@@ -122,16 +128,19 @@ test("hitState agrees with a brute-force scan over every character box", () => {
   }));
   const brute = (x, y) => {
     const B = TABLE.block;
-    if (!(x >= B[0] && x < B[2] && y >= B[1] && y < B[3])) return OUT;
+    if (!(x + 1 > B[0] && x < B[2] && y + 1 > B[1] && y < B[3])) return OUT;
     for (const yy of [y, y - 3]) {
-      const hit = boxes.find((bx) => x >= bx.l && x < bx.r && yy >= bx.t && yy < bx.b);
-      if (hit) return hit.g;
+      // all boxes the 1x1 probe intersects; the right-most (then lowest) wins
+      const hits = boxes.filter((bx) => x + 1 > bx.l && x < bx.r && yy + 1 > bx.t && yy < bx.b);
+      if (hits.length) return hits.sort((p, q) => q.l - p.l || q.t - p.t)[0].g;
     }
     return NONE;
   };
   for (let n = 0; n < 20000; n++) {
     const x = 90 + rnd() * 420, y = 140 + rnd() * 170;
     assert.equal(hitState(IDX, OFF, x, y), brute(x, y), `at (${x}, ${y})`);
+    const xi = Math.round(x), yi = Math.round(y);
+    assert.equal(hitState(IDX, OFF, xi, yi), brute(xi, yi), `at (${xi}, ${yi})`);
   }
 });
 
@@ -154,7 +163,7 @@ test("shared hit-test fixture for the Python implementation", () => {
   const push = (x, y) => cases.push({ x, y, state: hitState(IDX, OFF, x, y) });
   // exact boundary points
   TABLE.words.forEach((w) => w.frags.forEach((f) => {
-    for (const x of f.xs) for (const y of [f.top, f.bottom - 0.1, f.bottom, f.bottom + 2.9, f.bottom + 3]) push(x, y);
+    for (const x of f.xs) for (const dx of [-1, -0.9, -0.1, 0, 0.5]) for (const y of [f.top - 1, f.top - 0.9, f.top, f.bottom - 0.1, f.bottom, f.bottom + 2.9, f.bottom + 3]) push(x + dx, y);
   }));
   for (let n = 0; n < 400; n++) push(Math.round((90 + rnd() * 420) * 10) / 10, Math.round((140 + rnd() * 170) * 10) / 10);
   checkFixture("js_hittest.json", { words: WORDS, table: TABLE, offsets: OFF, cases }, assert);

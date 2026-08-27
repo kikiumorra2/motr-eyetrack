@@ -62,7 +62,7 @@ test("size: 10k-event jitter trial and 60 s at 1 kHz", (t) => {
   const r = new CharEventRecorder({ maxEvents: 20000 });
   r.start(0, WORDS, TABLE);
   const x0 = TABLE.words[3].frags[0].xs[2];
-  for (let i = 0; i < 10000; i++) r.feed(i % 2 ? x0 - 0.5 : x0 + 0.5, 190, i);
+  for (let i = 0; i < 10000; i++) r.feed(i % 2 ? x0 - 1.5 : x0 + 0.5, 190, i);   // 1 px probe: stay clear of the edge
   r.end(10000);
   const f = r.fields();
   const total = f.mtEvents.length + f.mtTrace.length + f.mtLayout.length + f.mtStats.length;

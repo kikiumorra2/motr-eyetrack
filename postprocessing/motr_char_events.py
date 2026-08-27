@@ -459,17 +459,22 @@ class HitIndex:
             b.lefts = [fr.left for fr in b.frags]
 
     def hit_char_ik(self, x: float, y: float):
+        """1x1 px probe rule (see layout.js): box hit iff x+1 > l and x < r and y+1 > t and
+        y < b; the right-most hit wins."""
+        x1, y1 = x + 1, y + 1
         for band in self.bands:
-            if y < band.top:
+            if y1 <= band.top:
                 break
             if y >= band.bottom:
                 continue
-            fi = bisect.bisect_right(band.lefts, x) - 1
+            fi = bisect.bisect_left(band.lefts, x1) - 1      # right-most fragment with left < x+1
             while fi >= 0:
                 f = band.frags[fi]
                 if x < f.right:
-                    j = bisect.bisect_right(f.xs, x) - 1
-                    if 0 <= j < len(f.xs) - 1:
+                    j = bisect.bisect_left(f.xs, x1) - 1     # right-most boundary < x+1
+                    if j == len(f.xs) - 1:
+                        j -= 1
+                    if j >= 0:
                         return f.i, f.k0 + j
                 if fi > 0 and band.lefts[fi - 1] < band.lefts[fi]:
                     break
@@ -479,7 +484,7 @@ class HitIndex:
 
 def hit_state(index: HitIndex, offsets: list[int], x: float, y: float) -> int:
     B = index.block
-    if not (x >= B[0] and x < B[2] and y >= B[1] and y < B[3]):
+    if not (x + 1 > B[0] and x < B[2] and y + 1 > B[1] and y < B[3]):
         return OUT
     ik = index.hit_char_ik(x, y)
     if ik is None:

@@ -107,7 +107,12 @@ of state are recorded; a sample whose state equals the previous one produces not
 
 Hit-test rule (identical to the legacy sampler): if the point is outside `B` → `o`;
 otherwise find the character at `(x, y)`; if none, at `(x, y − 3)` (so the line above still
-counts); if none → `n`.
+counts); if none → `n`. "At a point" means what `document.elementFromPoint` means in
+Chrome/Blink: the 1 × 1 CSS-px square whose top-left corner is the point is intersected with
+the boxes, i.e. a box `[l, r) × [t, b)` is hit iff `x + 1 > l`, `x < r`, `y + 1 > t`, `y < b`;
+when several boxes qualify, the right-most (later in DOM order) wins. The same rule is applied
+to `B`. Both implementations follow it exactly (verified against the engine in
+`test/browser.test.js`).
 
 ## `mtTrace`
 

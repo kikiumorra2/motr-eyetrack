@@ -11,6 +11,12 @@
 //
 // hitState() reproduces the legacy sampler exactly: outside the block -> OUT; character at
 // (x, y); else at (x, y-3) ("look slightly above so the line above still counts"); else NONE.
+//
+// "At (x, y)" follows document.elementFromPoint, which (in Chrome/Blink) tests the 1x1 CSS px
+// square whose top-left corner is the point: a box [l, r) x [t, b) is hit iff
+//   x + 1 > l && x < r && y + 1 > t && y < b
+// and when several boxes qualify the later one in DOM order (right-most / lower) wins.
+// Verified against the real engine in test/browser.test.js.
 
 export const OUT = -2;
 export const NONE = -1;
@@ -95,35 +101,37 @@ export function buildIndex(table) {
   return { bands: list, block: table.block };
 }
 
-/** Largest index j with arr[j] <= x, or -1. */
-function upperIndex(arr, x) {
+/** Largest index j with arr[j] < v, or -1. */
+function lastBelow(arr, v) {
   let lo = 0, hi = arr.length - 1, ans = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (arr[mid] <= x) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+    if (arr[mid] < v) { ans = mid; lo = mid + 1; } else hi = mid - 1;
   }
   return ans;
 }
 
 /**
- * Character at (x, y) as {i, k} or null. Half-open boxes: [x_j, x_{j+1}) x [top, bottom).
- * Overlapping fragments (should not happen) resolve to the right-most starting one.
+ * Character at (x, y) as {i, k} or null, using the 1x1 px probe rule above: character
+ * box j = [x_j, x_{j+1}) is hit iff x + 1 > x_j && x < x_{j+1}; the right-most hit wins.
  */
 export function hitCharIK(index, x, y) {
   const bands = index.bands;
+  const x1 = x + 1, y1 = y + 1;
   for (let b = 0; b < bands.length; b++) {
     const band = bands[b];
-    if (y < band.top) break;               // bands sorted by top; later bands start lower
+    if (y1 <= band.top) break;             // bands sorted by top; later bands start lower
     if (y >= band.bottom) continue;
-    let fi = upperIndex(band.lefts, x);
+    let fi = lastBelow(band.lefts, x1);    // right-most fragment starting left of x + 1
     for (; fi >= 0; fi--) {
       const f = band.frags[fi];
       if (x < f.right) {
-        const j = upperIndex(f.xs, x);       // xs sorted ascending
-        if (j >= 0 && j < f.xs.length - 1) return { i: f.i, k: f.k0 + j };
+        let j = lastBelow(f.xs, x1);       // right-most boundary left of x + 1
+        if (j === f.xs.length - 1) j--;    // probe straddles the right edge: last character
+        if (j >= 0) return { i: f.i, k: f.k0 + j };
       }
-      // x beyond this fragment's right edge: an earlier (further left) fragment cannot
-      // contain it unless fragments overlap; keep scanning only while lefts are equal.
+      // x is at or beyond this fragment's right edge: fragments further left cannot be hit
+      // unless they overlap it; keep scanning only while lefts are equal.
       if (fi > 0 && band.lefts[fi - 1] < band.lefts[fi]) break;
     }
   }
@@ -138,7 +146,7 @@ export function hitCharIK(index, x, y) {
  */
 export function hitState(index, offsets, x, y) {
   const B = index.block;
-  if (!(x >= B[0] && x < B[2] && y >= B[1] && y < B[3])) return OUT;
+  if (!(x + 1 > B[0] && x < B[2] && y + 1 > B[1] && y < B[3])) return OUT;
   let ik = hitCharIK(index, x, y);
   if (!ik) ik = hitCharIK(index, x, y - LOOK_ABOVE_PX);
   if (!ik) return NONE;
