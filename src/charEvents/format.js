@@ -15,7 +15,7 @@ export const FORMAT_MAJOR = 1;
 export const FORMAT_ID = `${FORMAT_NAME}/${FORMAT_MAJOR}`;
 
 /** Characters allowed in every mt* field: JSON/CSV/Postgres-export safe. */
-export const CHARSET_RE = /^[0-9A-Za-z .,:;@#_=-]*$/;
+export const CHARSET_RE = /^[0-9A-Za-z .,:;@#_=/-]*$/;
 
 /** Event kinds. `c` and `l` carry a number; the others do not. */
 export const KINDS_WITH_NUM = new Set(["c", "l"]);
@@ -31,7 +31,7 @@ export class FormatError extends Error {
 export function assertCharset(s, what = "field") {
   if (typeof s !== "string") throw new FormatError(`${what} is not a string`);
   if (!CHARSET_RE.test(s)) {
-    const bad = s.match(/[^0-9A-Za-z .,:;@#_=-]/);
+    const bad = s.match(/[^0-9A-Za-z .,:;@#_=/-]/);
     throw new FormatError(`${what} contains disallowed character ${JSON.stringify(bad[0])}`);
   }
   return s;

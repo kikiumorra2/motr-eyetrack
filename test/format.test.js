@@ -50,7 +50,7 @@ test("number formatting: integer tenths, no -0, ties round up", () => {
 });
 
 test("charset assertion", () => {
-  assertCharset("l0@0 B1,2,3,4 F1@1,2:3,4;#-_=");
+  assertCharset("l0@0 B1,2,3,4 F1@1,2:3,4;#-_= motr-ce/1");
   for (const bad of ['a"b', "a\\b", "a|b", "a{b", "a\nb", "é"]) {
     assert.throws(() => assertCharset(bad), /disallowed character/);
   }

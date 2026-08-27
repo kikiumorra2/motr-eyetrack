@@ -23,7 +23,7 @@ participant clicks "Done Reading":
 The row has **no `Index`** field, so a pipeline that does not know the format treats it
 like a summary row. magpie adds `responseTime` (ms since screen start) as usual.
 
-All four `mt*` strings use only `[0-9A-Za-z .,:;@#_=-]` — safe inside JSON, CSV, the
+All `mt*` strings use only `[0-9A-Za-z .,:;@#_=/-]` — safe inside JSON, CSV, the
 magpie `flattenData` pipe-join and the Postgres `text[]` CSV export (no quotes,
 backslashes, braces or `|`). They are plain string scalars (never arrays/objects).
 
