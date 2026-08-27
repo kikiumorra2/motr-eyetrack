@@ -32,3 +32,30 @@ export function shiftedTable(table, dx, dy) {
     })),
   };
 }
+
+/**
+ * Synthetic monospace layout for arbitrary words: `charW` px per code point, words
+ * separated by one `charW`-wide trailing space, wrapped after `lineChars` characters,
+ * `lineH` px line pitch with a `glyphH` px glyph band. Leading spaces are zero-width
+ * (omitted); trailing spaces are omitted at line ends (like a real browser).
+ */
+export function fakeTable(words, { charW = 10, lineChars = 60, lineH = 40, glyphH = 21, left = 120, top = 180, blockPad = 20 } = {}) {
+  const table = { block: null, words: [] };
+  let line = 0, col = 0, maxCol = 0;
+  const bandTop = (ln) => top + ln * lineH;
+  for (const w of words) {
+    const len = Array.from(w).length;
+    if (col > 0 && col + len > lineChars) { line++; col = 0; }
+    const x0 = left + col * charW, t = bandTop(line);
+    const xs = [];
+    for (let j = 0; j <= len; j++) xs.push(x0 + j * charW);
+    col += len;
+    const atLineEnd = col >= lineChars;
+    if (!atLineEnd) { xs.push(x0 + (len + 1) * charW); col += 1; }
+    maxCol = Math.max(maxCol, col);
+    table.words.push({ rect: [x0, t, xs[xs.length - 1], t + glyphH], frags: [{ k0: 1, top: t, bottom: t + glyphH, xs }] });
+  }
+  const right = left + maxCol * charW;
+  table.block = [left - blockPad, top - blockPad, right + blockPad, bandTop(line) + glyphH + blockPad];
+  return table;
+}
