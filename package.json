@@ -13,7 +13,7 @@
     "test": "node --test \"test/**/*.test.js\"",
     "test:perf": "MOTR_PERF=1 node --test test/perf.test.js",
     "test:py": ".venv/bin/python -m pytest postprocessing",
-    "fixtures": "MOTR_WRITE_FIXTURES=1 node --test test/fixtures.test.js"
+    "fixtures": "MOTR_WRITE_FIXTURES=1 node --test \"test/**/*.test.js\""
   },
   "devDependencies": {
     "@samhammer/vue-cli-plugin-stylelint": "~2.1.0",
