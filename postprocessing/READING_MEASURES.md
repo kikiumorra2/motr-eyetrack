@@ -52,12 +52,20 @@ word"; the output does not distinguish a skipped word from an unmeasured one (§
 
 ## 2. Raw data: mouse samples
 
-### 2.1 One sample every 50 ms
+### 2.1 One sample every 50 ms (`samplingMode: "interval"`) — or one row per character change (`"events"`)
 
-While a sentence is on screen and the pointer is inside the text block (the padded box
-that contains the sentence, `.readingText`), the app records a row every `sampleIntervalMs`
-(50 ms, `src/config.js`). The timer fires whether or not the pointer moves, so a
-stationary pointer keeps producing samples. Each sample row has:
+In the legacy mode, while a sentence is on screen and the pointer is inside the text block
+(the padded box that contains the sentence, `.readingText`), the app records a row every
+`sampleIntervalMs` (50 ms, `src/config.js`). The timer fires whether or not the pointer
+moves, so a stationary pointer keeps producing samples.
+
+In the default **character-event mode** the app instead records, with millisecond
+timestamps, every change of the *character* under the pointer (from every hardware pointer
+sample, see `src/charEvents/FORMAT.md`), and step 1 of the pipeline expands that record into
+rows of exactly the shape below — one row per character change, `Index` being the word the
+character belongs to (the gap after a word counts as that word, as with the legacy hit test),
+plus the same `Index = −1` marker at "Done Reading". Everything from §2.2 on applies
+unchanged; the only differences are noted where they matter. Each sample row has:
 
 | field | meaning |
 |---|---|
@@ -142,7 +150,11 @@ Consequences worth internalising:
 
 - A duration runs until the *next* word is detected, so it includes the movement to that
   word (up to one sampling interval). A single-sample visit has a duration of ≈ 50 ms, not
-  0. Durations are multiples of the (jittery) sampling interval.
+  0. Durations are multiples of the (jittery) sampling interval. *Character-event mode:*
+  the next word is detected the moment the pointer crosses into it, so durations are exact
+  to the millisecond (not multiples of 50 ms), and a brief pass over a neighbouring word
+  that 20 Hz sampling would have missed now splits the association. `--resample 50` in
+  step 1 reproduces the legacy behaviour exactly for comparisons.
 - No samples are recorded while the pointer is off the text block, but a run is only broken
   by a sample with a *different* `Index`. Time spent away from the text is therefore
   absorbed into the association that was active when the pointer left: leave from word 3 and
@@ -477,8 +489,10 @@ of trials without an answer (kept with `response_chosen = NA`), and any use of t
 coordinates. The output is the raw per-word measure for every kept
 trial; all further cleaning is up to the analyst.
 
-Parameters that change the numbers: `--low-thres`, `--up-thres` (above), and
-`sampleIntervalMs` in `src/config.js` (resolution of every duration; 50 ms by default).
+Parameters that change the numbers: `--low-thres`, `--up-thres` (above), `samplingMode`
+in `src/config.js` (millisecond character events vs. the 50 ms timer; `sampleIntervalMs`
+is the resolution of every duration in the legacy mode) and, for character-event data,
+`--char-events` / `--resample` in step 1.
 
 ---
 

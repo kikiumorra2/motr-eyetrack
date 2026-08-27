@@ -26,7 +26,8 @@ first time only, an internet connection. No other setup.
 
 Useful options: `--require-prolific-id` (keep only participants whose ID is a 24-character
 Prolific ID), `--min-trials 30` (drop participants who did not finish), `--low-thres` /
-`--up-thres` (fixation duration limits in ms; default 160 and 4000).
+`--up-thres` (fixation duration limits in ms; default 160 and 4000), `--char-events`
+and `--resample` (below).
 
 Try it before collecting any data:
 
@@ -34,6 +35,42 @@ Try it before collecting any data:
 python3 scripts/simulate_results.py --experiment-id 0 --n-participants 3
 python3 postprocessing/run_pipeline.py --experiment-id 0 --csv results/exp_0/simulated_export.csv
 ```
+
+`simulate_results.py --format legacy|events|both` (default `events`) chooses the recording
+format; the same `--seed` produces the same simulated pointer paths in every format.
+
+## Character-event data (`samplingMode: "events"`)
+
+With the default app setting, each trial arrives as **one** row (`TrialType = "charEvents"`)
+holding the character boxes, the millisecond change events and (optionally) the raw pointer
+trace in compact text fields (`src/charEvents/FORMAT.md`). Step 1 decodes them
+(`postprocessing/motr_char_events.py`):
+
+- `--char-events auto` (default): expand charEvents rows into the classic sample rows — one
+  row per character change (`Index`, `Word`, `responseTime`, `mousePositionX/Y`,
+  `wordPosition*`, plus `charIndex`) and the `Index = -1` end marker — so steps 2–3 run
+  unchanged. If a submission also contains legacy 20 Hz rows (`samplingMode: "both"`), the
+  legacy rows are used and the charEvents row is dropped.
+- `--char-events expand`: always use the events (drops legacy rows in `both` data);
+  `ignore`: drop charEvents rows; `keep`: leave them untouched.
+- `--resample 50`: with `expand`, emit one row every 50 ms (the state at each tick) instead of
+  one per change. The pipeline output is then identical to what the legacy sampler would have
+  produced from the same pointer movement — useful to compare studies across modes.
+- In all modes a character-level table is written:
+  `results/exp_<ID>/char_events_exp_<ID>_<date>.csv` — one row per event with `t` (ms since
+  the trial screen started), `dt`, `kind` (`c` character, `n` no word, `o` outside the text,
+  `l` layout change, `h`/`s` tab hidden/shown, `e` done reading, `t` truncated), `word_idx`,
+  `char_idx` (0 = leading space, 1… the word's characters, last = trailing space), `char`,
+  `global_idx`, `layout_id`, `x`, `y`.
+
+Because character changes are timestamped to the millisecond, durations are no longer
+multiples of 50 ms and short excursions onto a neighbouring word are no longer missed. Expect
+word-level measures to differ slightly from a 20 Hz study; `--resample 50` gives the
+apples-to-apples numbers. `mtStats` in the raw row records per-trial diagnostics (`coal`:
+coalesced events available, `mindt`: smallest inter-sample interval, `hmax`: slowest handler
+call in µs, `trunc`: event cap hit). To sanity-check a browser session, paste the console
+output of a debug-mode trial into a JSON file and run
+`python3 postprocessing/motr_char_events.py --check rows.json`.
 
 ## What the output contains
 
@@ -83,7 +120,8 @@ of completed trials.
 ## How the pipeline works
 
 ```
-raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/results_processed_exp_<ID>_<date>.csv  (one row per mouse sample)
+raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/results_processed_exp_<ID>_<date>.csv  (one row per mouse sample / character change)
+                                               results/exp_<ID>/char_events_exp_<ID>_<date>.csv       (one row per character event)
                                                results/exp_<ID>/participants_exp_<ID>_<date>.csv
                                                results/exp_<ID>/items_processed.csv
                 ──▶ 2_compute_reading_measures.py (the MoTR pipeline, utils/)

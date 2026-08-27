@@ -3,9 +3,11 @@
 A blank, ready-to-clone project for **Mouse Tracking for Reading (MoTR)** experiments
 (Wilcox, Cui & Ćeplö, 2024). MoTR approximates eye-tracking in the browser: the text is
 blurred and a small sharp window follows the mouse, so where the mouse goes is where the
-participant reads. The app records the word under the cursor (with its bounding box and the
-raw mouse position) every 50 ms, and the postprocessing pipeline turns those samples into
-fixation-like "associations" and standard reading measures (first-pass, gaze, go-past, …).
+participant reads. The app records which *character* is under the cursor with millisecond
+timestamps (from every hardware mouse report, stored as compact change events — or, in the
+legacy mode, the word under the cursor every 50 ms), and the postprocessing pipeline turns
+those records into fixation-like "associations" and standard reading measures (first-pass,
+gaze, go-past, …).
 
 The app is built on [magpie](https://magpie-experiments.org/) (Vue 2), using the
 [`magpie-base-MoTR`](https://github.com/cuierd/magpie-base-MoTR) fork.
@@ -117,13 +119,33 @@ sharp white copy split into one `<span>` per word. A white oval with
 cancelling the blur under it – the moving "window". Because the spans receive the mouse
 events, `document.elementFromPoint` tells us which word is under the cursor.
 
-Every `sampleIntervalMs` while the cursor is over the text, a row is recorded with
-`Index`/`Word`, the word's bounding box, and the mouse position; magpie adds `responseTime`.
-"Done Reading" records an end-of-reading marker (`Index = -1`) so the last word's fixation
-can be closed, then the question is shown. "Next" records a trial-summary row and, with
-`submitEachTrial`, immediately sends that trial's rows to the server (MoTR data is large;
-per-trial submission means a dropout still leaves usable data). See the comment block at the
-top of `MotrTrial.vue` for the full column list.
+What gets recorded depends on `samplingMode` in `src/config.js`:
+
+- **`"events"` (default)** — the character-event recorder (`src/charEvents/`). When a trial
+  starts, the box of every character is measured once (with DOM `Range`s over the existing
+  word spans, so nothing about the rendering changes). Every pointer sample the hardware
+  delivers (`pointermove` + `getCoalescedEvents()`, typically 125–1000 Hz) is hit-tested
+  against those boxes with the same rule the legacy sampler uses (`(x, y)`, then
+  `(x, y − 3)`, else "no word"), and only *changes* of the character under the cursor are
+  kept, with their millisecond timestamps. Optionally every raw sample is kept too, delta-coded
+  (~3 bytes each). The layout is re-measured on resize/scroll/zoom/font load. "Done Reading"
+  closes the recording and stores **one row per trial** (`TrialType = "charEvents"`, fields
+  `mtFormat/mtLayout/mtEvents/mtTrace/mtStats`; format spec: `src/charEvents/FORMAT.md`).
+  A typical trial is ~5–10 KB instead of ~60–100 KB.
+- **`"interval"`** — the original sampler: every `sampleIntervalMs` while the cursor is over
+  the text, a row is recorded with `Index`/`Word`, the word's bounding box, and the mouse
+  position; magpie adds `responseTime`. "Done Reading" records an end-of-reading marker
+  (`Index = -1`) so the last word's fixation can be closed.
+- **`"both"`** — both at once, for validation studies.
+
+`postprocessing/1_fetch_and_flatten.py` expands charEvents rows back into the classic
+per-sample rows (one row per character change, plus the marker), so the rest of the pipeline
+is identical for all modes; it also writes a character-level table.
+
+In every mode, after "Done Reading" the question is shown. "Next" records a trial-summary
+row and, with `submitEachTrial`, immediately sends that trial's rows to the server (per-trial
+submission means a dropout still leaves usable data). See the comment block at the top of
+`MotrTrial.vue` for the full column list.
 
 Layout details that the data depends on: `font-size: 18px; line-height: 40px;` and
 `padding: 2% 11%` on both text layers. Keep the two layers identical if you restyle.
@@ -131,9 +153,28 @@ Layout details that the data depends on: `font-size: 18px; line-height: 40px;` a
 ## Data format
 
 Each submission is one JSON array of rows. Rows carry the experiment-level data
-(`SubjectId`, `ListId`, `Experiment`, `experiment_start_time`, …) plus either sample columns
+(`SubjectId`, `ListId`, `Experiment`, `experiment_start_time`, …) plus either sample columns,
+the per-trial `charEvents` fields (`samplingMode: "events"`; see `src/charEvents/FORMAT.md`)
 or summary columns; magpie fills absent columns with `"NA"`. `1_fetch_and_flatten.py`
 produces the flat CSV documented in `postprocessing/README.md`.
+
+## Tests
+
+```bash
+npm test                     # JS unit tests (node:test, Node >= 22): codecs, hit test,
+                             #   recorder, decoder, legacy equivalence, cross-language fixtures,
+                             #   and a headless-Chrome check when Chrome is installed
+npm run test:perf            # strict throughput / payload-size thresholds
+python -m pip install -r postprocessing/requirements-dev.txt
+python -m pytest postprocessing          # Python decoder + pipeline tests (add -m slow for the
+                                         #   end-to-end run over simulated data)
+```
+
+The JS and Python implementations of the `motr-ce/1` format are pinned to each other by
+`test/fixtures/*.json`: scenarios encoded on one side must decode — and re-encode
+byte-for-byte — on the other. Regenerate with `npm run fixtures` /
+`MOTR_WRITE_FIXTURES=1 python -m pytest postprocessing` after changing the format.
+`.github/workflows/test.yml` runs everything on push.
 
 ## Requirements
 
