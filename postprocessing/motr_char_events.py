@@ -45,6 +45,12 @@ NONE = -1
 LOOK_ABOVE_PX = 3
 
 MT_FIELDS = ("mtFormat", "mtLayout", "mtEvents", "mtTrace", "mtStats")
+# Row-specific fields that must never be copied from a dropped row onto another row.
+_ROW_FIELDS = set(MT_FIELDS) | {
+    "TrialType", "TrialText", "responseTime", "Index", "Word", "charIndex",
+    "mousePositionX", "mousePositionY",
+    "wordPositionTop", "wordPositionLeft", "wordPositionBottom", "wordPositionRight",
+}
 
 
 class CharEventsError(ValueError):
@@ -890,11 +896,29 @@ def expand_submission(rows: list[dict], mode: str = "auto", resample_ms: float |
     char_rows: list[dict] = []
     warnings: list[str] = []
     out: list[dict] = []
+    # magpie merges the participant-level data (SubjectId, ListId, ...) into the FIRST row of
+    # a submission only; when that row is dropped its fields carry over to the next row.
+    carry: dict = {}
+
+    def emit(r: dict):
+        if carry:
+            for k, v in carry.items():
+                if not _present(r.get(k)):
+                    r[k] = v
+            carry.clear()
+        out.append(r)
+
+    def drop(r: dict):
+        for k, v in r.items():
+            if k not in _ROW_FIELDS and _present(v) and k not in carry:
+                carry[k] = v
+
     for row in rows:
         if not is_char_events_row(row):
             if drop_legacy and is_legacy_sample_row(row):
+                drop(row)
                 continue
-            out.append(row)
+            emit(dict(row))
             continue
         base = {k: row.get(k) for k in ("Experiment", "Condition", "ItemId")}
         label = f"trial {base['ItemId']}/{base['Condition']}"
@@ -906,19 +930,25 @@ def expand_submission(rows: list[dict], mode: str = "auto", resample_ms: float |
                 warnings.append(f"{label}: events truncated (maxEvents reached, {decoded['stats'].get('drop', 0)} dropped)")
             char_rows.extend(char_table(fields, words, base))
             if mode == "keep":
-                out.append(row)
+                emit(dict(row))
             elif mode == "expand":
-                passthrough = {k: v for k, v in row.items() if k not in MT_FIELDS and k not in ("TrialType", "TrialText", "responseTime")}
+                passthrough = {k: v for k, v in row.items() if k not in _ROW_FIELDS}
                 expanded = (resample(fields, words, resample_ms, 0, base) if resample_ms
                             else expand_to_legacy_rows(fields, words, base))
+                if not expanded:
+                    drop(row)
                 for e in expanded:
                     merged = dict(passthrough)
                     merged.update(e)
-                    out.append(merged)
+                    emit(merged)
+            else:  # ignore
+                drop(row)
         except CharEventsError as e:
             warnings.append(f"{label}: cannot decode charEvents row ({e}); dropped")
             if mode == "keep":
-                out.append(row)
+                emit(dict(row))
+            else:
+                drop(row)
     return out, char_rows, warnings
 
 

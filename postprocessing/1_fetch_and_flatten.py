@@ -30,6 +30,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import motr_char_events  # noqa: E402  (character-event payloads, see src/charEvents/FORMAT.md)
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # Columns that are constant per participant but only present on some rows.
@@ -110,10 +113,33 @@ def broadcast(df, cols, by=None):
     return df
 
 
-def flatten(records):
-    frames = []
+def flatten(records, char_events="auto", resample_ms=None):
+    """Legacy-shaped sample rows for all submissions (see flatten_all)."""
+    return flatten_all(records, char_events, resample_ms)[0]
+
+
+def flatten_all(records, char_events="auto", resample_ms=None):
+    """
+    Turn submissions into (df, char_df, warnings).
+
+    df       one row per sample / marker / summary row, exactly as the legacy 20 Hz format;
+             charEvents rows (samplingMode "events") are expanded by motr_char_events
+             according to `char_events` (auto | expand | ignore | keep) and `resample_ms`.
+    char_df  one row per recorded character event (empty when there are none).
+    """
+    frames, char_frames, warnings = [], [], []
     for rec in records:
-        rows = parse_results_cell(rec["results"])
+        raw_rows = parse_results_cell(rec["results"])
+        if not raw_rows:
+            continue
+        rows, char_rows, warns = motr_char_events.expand_submission(raw_rows, char_events, resample_ms)
+        warnings.extend(f"submission {rec['id']}: {w}" for w in warns)
+        if char_rows:
+            cdf = pd.DataFrame(char_rows)
+            cdf["submission_row_id"] = rec["id"]
+            subject = next((r.get("SubjectId") for r in raw_rows if motr_char_events._present(r.get("SubjectId"))), np.nan)
+            cdf["SubjectId"] = subject
+            char_frames.append(cdf)
         if not rows:
             continue
         df = pd.DataFrame(rows).replace("NA", np.nan)
@@ -131,7 +157,10 @@ def flatten(records):
     # Keep each participant's samples together and in the order they were recorded.
     df["experiment_start_time"] = pd.to_numeric(df["experiment_start_time"], errors="coerce")
     df = df.sort_values(["SubjectId", "experiment_start_time", "submission_row_id"], kind="stable")
-    return df.reset_index(drop=True)
+    char_df = pd.concat(char_frames, ignore_index=True) if char_frames else pd.DataFrame()
+    if len(char_df):
+        char_df = char_df.sort_values(["SubjectId", "submission_row_id", "t"], kind="stable").reset_index(drop=True)
+    return df.reset_index(drop=True), char_df, warnings
 
 
 def participants_table(df):
@@ -166,6 +195,12 @@ def main():
                         help="drop participants whose ID is not a 24-character hex Prolific ID")
     parser.add_argument("--min-trials", type=int, default=0,
                         help="drop participants with fewer completed trials than this")
+    parser.add_argument("--char-events", choices=motr_char_events.MODES, default="auto",
+                        help="charEvents rows (samplingMode 'events'): expand into sample rows, ignore them, "
+                             "keep them raw, or auto (expand unless legacy sample rows are present; default)")
+    parser.add_argument("--resample", type=float, default=None, metavar="MS",
+                        help="with --char-events expand: emit fixed-interval rows every MS ms instead of "
+                             "one row per character change (for comparison with the 20 Hz format)")
     args = parser.parse_args()
 
     out_dir = args.out_dir or ROOT / "results" / f"exp_{args.experiment_id}"
@@ -174,7 +209,9 @@ def main():
 
     records = read_db(args.experiment_id) if args.db else read_csv_export(args.csv, args.experiment_id)
     print(f"{len(records)} submissions")
-    df = flatten(records)
+    df, char_df, warnings = flatten_all(records, args.char_events, args.resample)
+    for w in warnings:
+        print("warning:", w)
 
     participants = participants_table(df)
     keep = pd.Series(True, index=participants.index)
@@ -186,6 +223,10 @@ def main():
         print(f"dropping {len(dropped)} participants: {dropped}")
     participants = participants[keep]
     df = df[df["SubjectId"].isin(participants["submission_id"])]
+    if len(char_df):
+        char_df = char_df[char_df["SubjectId"].isin(participants["submission_id"])].copy()
+        char_df["ItemId"] = char_df["ItemId"].astype(str) + "_" + char_df["Condition"].astype(str)
+        char_df = char_df.rename(columns={"SubjectId": "submission_id"})
 
     # Mouse-sample / trial-summary rows only (drops survey rows, which have no ItemId).
     df = df[df["ItemId"].notna()].copy()
@@ -208,6 +249,13 @@ def main():
     items_table(args.materials_dir).to_csv(items_path, index=False)
     print(f"{len(participants)} participants, {len(df)} rows")
     print(f"wrote {results_path}\nwrote {participants_path}\nwrote {items_path}")
+    if len(char_df):
+        char_path = out_dir / f"char_events_exp_{args.experiment_id}_{today}.csv"
+        first_c = ["submission_id", "Experiment", "ItemId", "Condition", "t", "T", "dt", "kind",
+                   "word_idx", "char_idx", "char", "global_idx", "layout_id", "x", "y", "num", "submission_row_id"]
+        char_df = char_df[[c for c in first_c if c in char_df.columns] + sorted(c for c in char_df.columns if c not in first_c)]
+        char_df.to_csv(char_path, index=False)
+        print(f"{len(char_df)} character events, wrote {char_path}")
 
 
 if __name__ == "__main__":

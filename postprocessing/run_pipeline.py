@@ -64,6 +64,10 @@ def main():
     parser.add_argument("--min-trials", type=int, default=0)
     parser.add_argument("--low-thres", type=int, default=160)
     parser.add_argument("--up-thres", type=int, default=4000)
+    parser.add_argument("--char-events", choices=["auto", "expand", "ignore", "keep"], default="auto",
+                        help="how step 1 treats charEvents rows (samplingMode 'events'); default auto")
+    parser.add_argument("--resample", type=float, default=None, metavar="MS",
+                        help="step 1: expand charEvents rows into fixed-interval rows every MS ms")
     args = parser.parse_args()
 
     if args.csv and not args.csv.exists():
@@ -73,6 +77,9 @@ def main():
     step1 += ["--db"] if args.db else ["--csv", args.csv]
     if args.require_prolific_id:
         step1.append("--require-prolific-id")
+    step1 += ["--char-events", args.char_events]
+    if args.resample is not None:
+        step1 += ["--resample", args.resample]
     run("1_fetch_and_flatten.py", *step1)
     run("2_compute_reading_measures.py", "--experiment-id", args.experiment_id,
         "--low-thres", args.low_thres, "--up-thres", args.up_thres)
