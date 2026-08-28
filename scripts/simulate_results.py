@@ -137,12 +137,33 @@ def simulate_trial(rng, trial, trial_idx, exp_data, sample_ms, options, fmt):
     return rows
 
 
-def finalize(rows, exp_data):
-    """Mimic magpie: merge expData into every row and fill missing columns with 'NA'."""
+EXP_DATA_MODES = ("first-row", "first-submission", "every-row")
+
+
+def finalize(rows, exp_data, mode="first-row", first_submission=False):
+    """
+    Mimic magpie + the app: columns a row lacks become "" (magpie's addEmptyColumns); the experiment-level data (SubjectId,
+    ListId, experiment_start_time, ...) is written according to `mode`:
+      first-row         on the first row of every submission, null on the others - what the app
+                        submits (src/submit.js); default
+      first-submission  only on the first row of the participant's FIRST submission - what magpie
+                        alone would do with per-trial submissions (later trials cannot be assigned
+                        to a participant; step 1 warns and drops them)
+      every-row         on every row
+    A row's own value of a key (Experiment, ListId on summary rows) is never overwritten.
+    """
     cols = set(exp_data)
     for r in rows:
         cols |= set(r)
-    return [{**{c: "NA" for c in cols}, **exp_data, **r} for r in rows]
+    out = []
+    for i, r in enumerate(rows):
+        row = {**{c: "" for c in cols}, **r}
+        carry = mode == "every-row" or (i == 0 and (mode == "first-row" or first_submission))
+        for k, v in exp_data.items():
+            if k not in r:
+                row[k] = v if carry else None
+        out.append(row)
+    return out
 
 
 def main():
@@ -153,6 +174,8 @@ def main():
     parser.add_argument("--out", type=Path, default=None, help="default: results/exp_<ID>/simulated_export.csv")
     parser.add_argument("--format", choices=FORMATS, default="events", help="recording format (default: events)")
     parser.add_argument("--sample-ms", type=int, default=50, help="legacy sampling interval (default 50)")
+    parser.add_argument("--exp-data", choices=EXP_DATA_MODES, default="first-row",
+                        help="where the experiment-level data (SubjectId, ...) is written (see finalize; default first-row)")
     args = parser.parse_args()
     rng = random.Random(args.seed)
 
@@ -173,12 +196,13 @@ def main():
                     "experiment_start_time": start, "experiment_end_time": start + 900_000, "experiment_duration": 900_000}
         main_trials = fillers[:2] + rng.sample(read(list_path) + fillers[2:], len(read(list_path)) + len(fillers) - 2)
         for i, trial in enumerate(practice + main_trials):
-            rows = finalize(simulate_trial(rng, trial, i, exp_data, args.sample_ms, options, args.format), exp_data)
+            rows = finalize(simulate_trial(rng, trial, i, exp_data, args.sample_ms, options, args.format), exp_data,
+                            args.exp_data, first_submission=(i == 0))
             submissions.append((row_id, rows)); row_id += 1
         survey = finalize([{"Experiment": "motr_template", "TrialType": "survey", "responseTime": 20000,
                             "device": rng.choice(["Computer Mouse", "Computer Trackpad"]), "hand": "Right", "feedback": "simulated",
                             "zoomPercent": 100, "devicePixelRatio": 2, "screenWidth": 1440, "screenHeight": 900,
-                            "windowInnerWidth": 1440, "windowInnerHeight": 900, "userAgent": "simulated"}], exp_data)
+                            "windowInnerWidth": 1440, "windowInnerHeight": 900, "userAgent": "simulated"}], exp_data, args.exp_data)
         submissions.append((row_id, survey)); row_id += 1
 
     with open(out, "w", newline="", encoding="utf-8") as f:

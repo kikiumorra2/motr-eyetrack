@@ -901,8 +901,9 @@ def expand_submission(rows: list[dict], mode: str = "auto", resample_ms: float |
     char_rows: list[dict] = []
     warnings: list[str] = []
     out: list[dict] = []
-    # magpie merges the participant-level data (SubjectId, ListId, ...) into the FIRST row of
-    # a submission only; when that row is dropped its fields carry over to the next row.
+    # The participant-level data (SubjectId, ListId, ...) sits on the FIRST row of a submission
+    # only (magpie's flattenData / src/submit.js); when that row is dropped its fields carry
+    # over to the next row.
     carry: dict = {}
 
     def emit(r: dict):

@@ -146,7 +146,9 @@ raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/resu
 (`--help` lists the options).
 
 **Step 1** parses the JSON of every submission (one per trial, plus one for the survey),
-broadcasts the per-participant columns to every row, drops the survey rows from the sample
+broadcasts the per-participant columns from each submission's first row to all its rows (a
+submission without a `SubjectId` cannot be assigned to anyone - it is dropped with a loud
+warning; the app puts the id on every submission in `src/submit.js`), drops the survey rows from the sample
 file, builds `ItemId = <item_id>_<condition_id>`, and renames `userResponse → response`,
 `SubjectId → submission_id`. The sample file has one row per mouse sample with `Index` /
 `Word` (word under the cursor; `-1` = no word, or the end-of-reading marker), `responseTime`

@@ -21,7 +21,8 @@ BINARY = ["FPFix", "FPReg", "RegIn_excl", "RegIn_incl"]
 
 
 def run(*args):
-    subprocess.run([PY] + [str(a) for a in args], check=True, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    r = subprocess.run([PY] + [str(a) for a in args], check=True, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    return r.stdout.decode()
 
 
 def pipeline(tmp, name, export, *step1_args):
@@ -33,6 +34,36 @@ def pipeline(tmp, name, export, *step1_args):
     run(PP / "3_aggregate.py", "--experiment-id", "0", "--out-dir", out,
         "--participants", next(res.glob("participants_exp_0_*.csv")))
     return pd.read_csv(out / "exp_0" / "reading_measures_all.csv")
+
+
+@pytest.mark.slow
+def test_every_submission_is_assigned_to_its_participant(tmp_path):
+    """Per-trial submissions: the app writes the experiment-level data on the first row of EVERY
+    submission (src/submit.js). With magpie's own behaviour (first row of all data only, i.e. the
+    participant's first submission) every later trial would be anonymous: step 1 must keep all
+    trials in the first case and warn loudly in the second."""
+    import json
+    for mode, expect_all in (("first-row", True), ("first-submission", False)):
+        export = tmp_path / f"{mode}.csv"
+        run(ROOT / "scripts" / "simulate_results.py", "--experiment-id", "0", "--n-participants", "2", "--seed", "5",
+            "--exp-data", mode, "--out", export)
+        subs = [json.loads(r) for r in pd.read_csv(export)["results"]]
+        n_trials_written = sum(1 for s in subs for r in s if r.get("TrialType") == "trial")
+        subjects = {r["SubjectId"] for s in subs for r in s if r.get("SubjectId") not in (None, "NA")}
+        assert len(subjects) == 2 and n_trials_written > 4
+        res = tmp_path / f"res_{mode}"
+        log = run(PP / "1_fetch_and_flatten.py", "--experiment-id", "0", "--csv", export, "--out-dir", res)
+        participants = pd.read_csv(next(res.glob("participants_exp_0_*.csv")))
+        flat = pd.read_csv(next(res.glob("results_processed_exp_0_*.csv")), low_memory=False)
+        assert len(participants) == 2
+        if expect_all:
+            assert participants["n_trials"].sum() == n_trials_written           # nothing dropped
+            assert (flat["TrialType"] == "trial").sum() == n_trials_written
+            assert participants["device"].notna().all()                          # survey row assigned too
+            assert "no SubjectId" not in log and "WARNING" not in log
+        else:
+            assert (participants["n_trials"] == 1).all()                         # only the first trial survives
+            assert log.count("warning: submission") == len(subs) - 2 and "WARNING" in log and "were dropped" in log
 
 
 @pytest.mark.slow

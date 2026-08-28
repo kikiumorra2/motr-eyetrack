@@ -175,6 +175,23 @@ def test_participant_fields_carry_over_from_dropped_rows():
     assert out[0]["ListId"] == 9
 
 
+def test_submissions_without_subjectid_are_reported():
+    # magpie alone tags only the first row of ALL data, i.e. only a participant's first per-trial
+    # submission carries SubjectId (src/submit.js adds it to every one). Such submissions cannot be
+    # assigned to a participant: step 1 must say so loudly instead of silently dropping them.
+    first = [{**legacy_rows()[0], "SubjectId": "s1", "ListId": 1, "experiment_start_time": 1}] + legacy_rows()[1:] + [SUMMARY]
+    orphan = [{**r, "ItemId": "4", "SubjectId": None, "experiment_start_time": None} for r in legacy_rows() + [SUMMARY]]
+    records = [{"id": 1, "results": json.dumps(first)}, {"id": 2, "results": json.dumps(orphan)}]
+    df, _, warns = ff.flatten_all(records, "auto")
+    assert len(warns) == 1 and "submission 2" in warns[0] and "no SubjectId" in warns[0] and "DROPPED" in warns[0]
+    assert df["SubjectId"].isna().sum() == len(orphan)
+    assert set(df.loc[df["SubjectId"] == "s1", "ItemId"]) == {"3"}
+    # with the id on the first row (what src/submit.js guarantees) the submission is assigned to its participant
+    fixed = [{**orphan[0], "SubjectId": "s1"}] + orphan[1:]
+    df, _, warns = ff.flatten_all([records[0], {"id": 2, "results": json.dumps(fixed)}], "auto")
+    assert warns == [] and df["SubjectId"].isna().sum() == 0 and set(df["ItemId"]) == {"3", "4"}
+
+
 def test_flatten_ignore_and_keep():
     compact = {**char_events_row(), "SubjectId": "s1", "experiment_start_time": 1}
     records = [{"id": 1, "results": json.dumps([compact, SUMMARY])}]

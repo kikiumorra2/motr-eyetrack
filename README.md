@@ -152,8 +152,10 @@ Layout details that the data depends on: `font-size: 18px; line-height: 40px;` a
 
 ## Data format
 
-Each submission is one JSON array of rows. Rows carry the experiment-level data
-(`SubjectId`, `ListId`, `Experiment`, `experiment_start_time`, …) plus either sample columns,
+Each submission is one JSON array of rows. Its **first row** carries the experiment-level data
+(`SubjectId`, `ListId`, `Experiment`, `experiment_start_time`, …): magpie itself only puts that
+on the first row of *all* recorded data, so `src/submit.js` adds it to every per-trial submission
+and to the survey row (step 1 spreads it over the submission's other rows). Rows hold either sample columns,
 the per-trial `charEvents` fields (`samplingMode: "events"`; see `src/charEvents/FORMAT.md`)
 or summary columns; magpie fills absent columns with `"NA"`. `1_fetch_and_flatten.py`
 produces the flat CSV documented in `postprocessing/README.md`.

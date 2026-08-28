@@ -43,6 +43,9 @@ PARTICIPANT_COLS = [
 ]
 # Reported in the participants table only (not broadcast to every sample row).
 PARTICIPANT_ONLY_COLS = ["screenWidth", "screenHeight", "windowInnerWidth", "windowInnerHeight", "userAgent"]
+# Participant columns recorded as whole numbers; sample rows lack them, so pandas would keep
+# them as floats ("2.0") after the broadcast - store them as integers.
+INTEGER_PARTICIPANT_COLS = ["ListId", "experiment_start_time", "experiment_end_time", "experiment_duration", "zoomPercent"]
 # Columns the downstream pipeline reads; created (empty) if missing.
 REQUIRED_COLS = [
     "Index", "Word", "ItemId", "Condition", "Experiment", "responseTime",
@@ -113,6 +116,14 @@ def broadcast(df, cols, by=None):
     return df
 
 
+def _integer_if_integral(s):
+    """`s` as a nullable integer column if every non-null value is a whole number, else unchanged."""
+    num = pd.to_numeric(s, errors="coerce")
+    if num.notna().sum() != s.notna().sum() or not (num.dropna() % 1 == 0).all():
+        return s
+    return num.astype("Int64")
+
+
 def flatten(records, char_events="auto", resample_ms=None):
     """Legacy-shaped sample rows for all submissions (see flatten_all)."""
     return flatten_all(records, char_events, resample_ms)[0]
@@ -142,8 +153,14 @@ def flatten_all(records, char_events="auto", resample_ms=None):
             char_frames.append(cdf)
         if not rows:
             continue
-        df = pd.DataFrame(rows).replace("NA", np.nan)
+        # magpie fills columns a row does not have with "" (addEmptyColumns); older exports use "NA"
+        df = pd.DataFrame(rows).replace(["NA", ""], np.nan)
         df["submission_row_id"] = rec["id"]
+        if "SubjectId" not in df.columns or df["SubjectId"].isna().all():
+            # magpie alone puts the experiment-level data on the first row of ALL data, i.e. only
+            # in a participant's first per-trial submission; src/submit.js adds it to every one.
+            warnings.append(f"submission {rec['id']}: no SubjectId on any of its {len(df)} rows - "
+                            "it cannot be assigned to a participant and will be DROPPED")
         frames.append(broadcast(df, PARTICIPANT_COLS))
     if not frames:
         sys.exit("no submissions found")
@@ -151,6 +168,9 @@ def flatten_all(records, char_events="auto", resample_ms=None):
     if "SubjectId" not in df.columns:
         sys.exit("submissions contain no SubjectId column")
     df = broadcast(df, PARTICIPANT_COLS, by="SubjectId")
+    for col in INTEGER_PARTICIPANT_COLS:
+        if col in df.columns:
+            df[col] = _integer_if_integral(df[col])
     for col in REQUIRED_COLS:
         if col not in df.columns:
             df[col] = np.nan
@@ -167,6 +187,10 @@ def participants_table(df):
     trials = df[df["TrialType"] == "trial"] if "TrialType" in df.columns else df.iloc[0:0]
     cols = [c for c in PARTICIPANT_COLS + PARTICIPANT_ONLY_COLS if c in df.columns and c != "SubjectId"]
     out = df.groupby("SubjectId")[cols].first()
+    # every per-trial submission carries its own end time / duration: report the last one
+    for col in ("experiment_end_time", "experiment_duration"):
+        if col in cols:
+            out[col] = df.groupby("SubjectId")[col].max()
     out["n_trials"] = trials.groupby("SubjectId").size()
     out["n_trials"] = out["n_trials"].fillna(0).astype(int)
     return out.reset_index().rename(columns={"SubjectId": "submission_id"})
@@ -222,6 +246,7 @@ def main():
     if dropped:
         print(f"dropping {len(dropped)} participants: {dropped}")
     participants = participants[keep]
+    n_orphan = int(df["SubjectId"].isna().sum())
     df = df[df["SubjectId"].isin(participants["submission_id"])]
     if len(char_df):
         char_df = char_df[char_df["SubjectId"].isin(participants["submission_id"])].copy()
@@ -256,6 +281,10 @@ def main():
         char_df = char_df[[c for c in first_c if c in char_df.columns] + sorted(c for c in char_df.columns if c not in first_c)]
         char_df.to_csv(char_path, index=False)
         print(f"{len(char_df)} character events, wrote {char_path}")
+    if n_orphan:
+        print(f"WARNING: {n_orphan} rows in {sum('no SubjectId' in w for w in warnings)} submissions carry no SubjectId "
+              "and were dropped (see the warnings above). Every submission must have the participant's "
+              "SubjectId on its first row - the app does this in src/submit.js.")
 
 
 if __name__ == "__main__":
