@@ -79,7 +79,10 @@ python3 postprocessing/plot_char_events.py --rows rows.json --item 3 --show  # s
 python3 postprocessing/motr_char_events.py --check rows.json                 # decode + agreement with legacy rows ("both" mode)
 ```
 
-`plot_char_events.py --csv export.csv` does the same for a server export or a simulated one.
+`plot_char_events.py --csv export.csv` does the same for a server export or a simulated one. The
+layout panel is framed on the text and sized from its aspect ratio; `--fit block` frames the whole
+recorded text block instead and `--fit all` every position the pointer visited (which shows the
+strokes that enter and leave the screen, at the price of much smaller words).
 
 ## What the output contains
 

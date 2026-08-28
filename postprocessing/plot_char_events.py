@@ -17,7 +17,8 @@ Panels:
      the pointer was on no word / outside the text; layout / visibility markers; the legacy
      50 ms rows overlaid when the same trial also has them ("both" mode)
   2. the recorded layout: character boxes coloured by dwell time, raw pointer trace coloured
-     by time, character-change points
+     by time, character-change points. The panel is framed on the text and its height follows
+     from the text's aspect ratio (--fit block / all frame the recorded block / everything).
   3. dwell time per word
   4. sampling diagnostics: inter-sample intervals of the raw trace, event dts, stats
 
@@ -133,7 +134,101 @@ def word_dwell(char_dwell: dict, offsets: list[int], n_words: int) -> np.ndarray
 # ---------------------------------------------------------------------------
 # plotting
 
-def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi: int, layout_id: int | None):
+# The figure is laid out in inches rather than with a fixed gridspec: the layout panel
+# draws CSS pixels at aspect 1:1, so its height follows from the text it has to show —
+# giving it a fixed share of a fixed-height figure either squashes the words to nothing
+# or leaves a band of empty paper above and below them.
+FIG_W = 15.0                                   # inches
+M_L, M_R, M_T, M_B = 0.95, 0.5, 0.8, 1.4       # figure margins (bottom: rotated word labels)
+H_SCAN, H_DIAG = 3.4, 2.5                      # scanpath / diagnostics row heights
+GAP_SCAN, GAP_DIAG = 0.9, 0.75                 # gaps (x labels above, titles below)
+CB_STRIP = 1.0                                 # colour bars + legend under the layout panel
+MAX_LAYOUT_H = 6.5                             # inches; taller texts are scaled down
+MAX_ZOOM = 3.2                                 # never magnify the text more than this (1 = 96 dpi CSS px)
+MAX_CHAR_PT = 17.0                             # cap for the drawn characters
+MIN_CHAR_PT = 3.0                              # below this a character is not worth drawing
+
+
+def text_bbox(snap: dict) -> tuple[float, float, float, float]:
+    """(x0, y0, x1, y1) of the characters themselves — not of the block they sit in."""
+    x0 = y0 = float("inf")
+    x1 = y1 = float("-inf")
+    for w in snap["words"]:
+        for f in w["frags"]:
+            if len(f["xs"]) < 2:
+                continue
+            x0, x1 = min(x0, f["xs"][0]), max(x1, f["xs"][-1])
+            y0, y1 = min(y0, f["top"]), max(y1, f["bottom"])
+    if x0 == float("inf"):                                   # no fragments: use the word rects
+        for w in snap["words"]:
+            l, t, r, b = w["rect"]
+            x0, y0, x1, y1 = min(x0, l), min(y0, t), max(x1, r), max(y1, b)
+    if x0 == float("inf"):                                   # no words at all
+        return snap["block"][0], snap["block"][1], snap["block"][2], snap["block"][3]
+    return x0, y0, x1, y1
+
+
+def view_box(fit: str, snap: dict, pts) -> tuple[float, float, float, float]:
+    """Area the layout panel draws, as (x0, y0, x1, y1); `pts` are the trace/marker points.
+
+    "text" (default) frames the characters and follows the pointer a short way out of them
+    horizontally; the block is usually far wider and taller than the line(s) actually set in
+    it, and framing that is what makes the words tiny. How far the frame follows the pointer
+    *vertically* is decided by `panel_geometry`, where the vertical room is nearly free.
+    """
+    B = snap["block"]
+    if fit == "block":
+        return B[0] - 15, B[1] - 15, B[2] + 15, B[3] + 15
+    tx0, ty0, tx1, ty1 = text_bbox(snap)
+    padx = max(6.0, 0.02 * (tx1 - tx0))
+    pady = max(6.0, 0.20 * (ty1 - ty0))
+    box = [tx0 - padx, ty0 - pady, tx1 + padx, ty1 + pady]
+    if not len(pts):
+        return tuple(box)
+    dx0, dy0 = float(np.min(pts[:, 0])), float(np.min(pts[:, 1]))
+    dx1, dy1 = float(np.max(pts[:, 0])), float(np.max(pts[:, 1]))
+    if fit == "all":
+        return (min(box[0], dx0, B[0]) - 5, min(box[1], dy0, B[1]) - 5,
+                max(box[2], dx1, B[2]) + 5, max(box[3], dy1, B[3]) + 5)
+    slack_x = 0.175 * (box[2] - box[0])          # widening the frame shrinks the characters
+    return (min(box[0], max(dx0, box[0] - slack_x)), box[1],
+            max(box[2], min(dx1, box[2] + slack_x)), box[3])
+
+
+def line_height(snap: dict) -> float:
+    """Median height of a text fragment box, i.e. one line of the rendered paragraph."""
+    hs = [f["bottom"] - f["top"] for w in snap["words"] for f in w["frags"]]
+    return float(np.median(hs)) if hs else 20.0
+
+
+def panel_geometry(fit: str, snap: dict, pts):
+    """(view box, layout panel width, its height, figure height) — inches for the last three.
+
+    The character size follows from panel width / view width, so vertical room is nearly free
+    until the panel runs out of paper. In "text" fit the frame therefore follows the pointer
+    up to one line above and below the text — enough for the hovering just under the line
+    people read with, but not for the strokes that enter and leave the screen, which would
+    stretch the panel into mostly empty paper (--fit all keeps those).
+    """
+    vbox = list(view_box(fit, snap, pts))
+    avail = FIG_W - M_L - M_R
+    w = min(avail, MAX_ZOOM * (vbox[2] - vbox[0]) / 96.0)
+    if fit == "text" and len(pts):
+        px_per_in = (vbox[2] - vbox[0]) / w
+        room = max(0.0, MAX_LAYOUT_H - (vbox[3] - vbox[1]) / px_per_in) * px_per_in
+        slack = min(line_height(snap), room / 2)
+        vbox[3] += min(slack, max(0.0, float(np.max(pts[:, 1])) - vbox[3]))
+        vbox[1] -= min(slack, max(0.0, vbox[1] - float(np.min(pts[:, 1]))))
+    vw, vh = max(vbox[2] - vbox[0], 1e-6), max(vbox[3] - vbox[1], 1e-6)
+    h = w * vh / vw
+    if h > MAX_LAYOUT_H:
+        w, h = w * MAX_LAYOUT_H / h, MAX_LAYOUT_H
+    fig_h = M_T + H_SCAN + GAP_SCAN + h + CB_STRIP + GAP_DIAG + H_DIAG + M_B
+    return tuple(vbox), w, h, fig_h
+
+
+def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi: int, layout_id: int | None,
+               fit: str = "text"):
     import matplotlib
     if not show:
         matplotlib.use("Agg")
@@ -167,13 +262,35 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
         layout_id = max(by_layout, key=by_layout.get) if by_layout else 0
     snap = snapshots[layout_id]
 
-    fig = plt.figure(figsize=(15, 13))
-    gs = fig.add_gridspec(3, 3, height_ratios=[1.15, 1.35, 0.8], hspace=0.42, wspace=0.3, top=0.94, bottom=0.07, left=0.07, right=0.97)
-    ax_time = fig.add_subplot(gs[0, :])
-    ax_lay = fig.add_subplot(gs[1, :])
-    ax_word = fig.add_subplot(gs[2, 0])
-    ax_iv = fig.add_subplot(gs[2, 1])
-    ax_dt = fig.add_subplot(gs[2, 2])
+    # ---- geometry: the layout panel sizes the figure -------------------------
+    marks = [(p["x"], p["y"]) for p in trace]
+    marks += [(r["x"], r["y"]) for r in table if r["kind"] == "c"]
+    for r in legacy:
+        try:
+            marks.append((float(r["mousePositionX"]), float(r["mousePositionY"])))
+        except (TypeError, ValueError, KeyError):
+            pass
+    marks = np.array(marks, dtype=float) if marks else np.empty((0, 2))
+    vbox, lay_w, lay_h, fig_h = panel_geometry(fit, snap, marks)
+    n_clipped = int(np.sum((marks[:, 0] < vbox[0]) | (marks[:, 0] > vbox[2]) |
+                           (marks[:, 1] < vbox[1]) | (marks[:, 1] > vbox[3]))) if len(marks) else 0
+
+    fig = plt.figure(figsize=(FIG_W, fig_h))
+
+    def rect_in(x, y, w, h):                     # inches (y from the bottom) -> figure fractions
+        return [x / FIG_W, y / fig_h, w / FIG_W, h / fig_h]
+
+    avail = FIG_W - M_L - M_R
+    lay_x = M_L + (avail - lay_w) / 2
+    y_scan = fig_h - M_T - H_SCAN
+    y_lay = y_scan - GAP_SCAN - lay_h
+    col_gap = 0.95
+    col_w = (avail - 2 * col_gap) / 3
+    ax_time = fig.add_axes(rect_in(M_L, y_scan, avail, H_SCAN))
+    ax_lay = fig.add_axes(rect_in(lay_x, y_lay, lay_w, lay_h))
+    ax_word = fig.add_axes(rect_in(M_L, M_B, col_w, H_DIAG))
+    ax_iv = fig.add_axes(rect_in(M_L + col_w + col_gap, M_B, col_w, H_DIAG))
+    ax_dt = fig.add_axes(rect_in(M_L + 2 * (col_w + col_gap), M_B, col_w, H_DIAG))
 
     # ---- 1. scanpath timeline ------------------------------------------------
     sec = lambda T: (T - t_first) / 1000.0  # noqa: E731
@@ -234,6 +351,17 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
     ax_time.set_title("Reconstructed scanpath (each step = the pointer moved onto another character; shading: no word / outside text)", fontsize=10)
 
     # ---- 2. layout with dwell heatmap and raw trace ---------------------------
+    pt_per_px = lay_w * 72.0 / max(vbox[2] - vbox[0], 1e-6)   # points on paper per CSS pixel
+    cw, ch = [], []
+    for w in snap["words"]:
+        for f in w["frags"]:
+            cw += [f["xs"][j + 1] - f["xs"][j] for j in range(len(f["xs"]) - 1)]
+            ch.append(f["bottom"] - f["top"])
+    # An em is ~2x the average advance and ~0.75 of the line box; draw the characters at the
+    # size the browser drew them, scaled by however much the panel magnifies the layout.
+    em_px = min(2.0 * np.median(cw), 0.75 * np.median(ch)) if cw else 10.0
+    char_pt = min(em_px * pt_per_px, MAX_CHAR_PT)
+
     B = snap["block"]
     ax_lay.add_patch(Rectangle((B[0], B[1]), B[2] - B[0], B[3] - B[1], fill=False, ec="0.7", lw=1, ls="--"))
     dmax = max(char_dwell.values()) if char_dwell else 1
@@ -249,9 +377,9 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
                 x0, x1 = f["xs"][j], f["xs"][j + 1]
                 ax_lay.add_patch(Rectangle((x0, f["top"]), x1 - x0, f["bottom"] - f["top"],
                                            fc=cmap_d(norm_d(d)) if d > 0 else "white", ec="0.85", lw=0.4))
-                if x1 - x0 >= 4 and i < len(words):
+                if char_pt >= MIN_CHAR_PT and (x1 - x0) * pt_per_px >= 2.0 and i < len(words):
                     ax_lay.text((x0 + x1) / 2, (f["top"] + f["bottom"]) / 2, ce.char_at(words[i], f["k0"] + j),
-                                ha="center", va="center", fontsize=7, color="0.25")
+                                ha="center", va="center", fontsize=char_pt, color="0.25")
     if trace:
         pts = np.array([[p["x"], p["y"]] for p in trace])
         tt = np.array([p["T"] - t_first for p in trace])
@@ -259,8 +387,6 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
         lc = LineCollection(segs, cmap="viridis", norm=Normalize(0, max(T_end - t_first, 1)), lw=1.2, alpha=0.9)
         lc.set_array(tt[:-1])
         ax_lay.add_collection(lc)
-        cb = fig.colorbar(lc, ax=ax_lay, pad=0.01, fraction=0.03)
-        cb.set_label("trace time since first movement (ms)")
     else:
         ax_lay.text(0.5, 0.02, "no raw trace recorded (positions synthesised from character boxes)",
                     transform=ax_lay.transAxes, ha="center", fontsize=8, color="0.4")
@@ -271,18 +397,38 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
         lx = [float(r["mousePositionX"]) for r in legacy if r.get("mousePositionX") not in (None, "", "NA")]
         lyy = [float(r["mousePositionY"]) for r in legacy if r.get("mousePositionY") not in (None, "", "NA")]
         ax_lay.plot(lx, lyy, "o", mfc="none", mec="C2", ms=5, mew=0.8, alpha=0.8, label="legacy 50 ms samples")
-    sm = plt.cm.ScalarMappable(norm=norm_d, cmap=cmap_d)
-    cb2 = fig.colorbar(sm, ax=ax_lay, pad=0.01, fraction=0.03)
-    cb2.set_label("dwell per character (ms)")
-    pad = 15
-    ax_lay.set_xlim(B[0] - pad, B[2] + pad)
-    ax_lay.set_ylim(B[3] + pad, B[1] - pad)
-    ax_lay.set_aspect("equal")
-    ax_lay.set_xlabel("x (CSS px, viewport)")
+    ax_lay.set_xlim(vbox[0], vbox[2])
+    ax_lay.set_ylim(vbox[3], vbox[1])
+    ax_lay.set_aspect("equal", adjustable="box", anchor="C")
+    ax_lay.set_xlabel("x (CSS px, viewport)", labelpad=2)
     ax_lay.set_ylabel("y (CSS px)")
-    ax_lay.legend(loc="lower right", fontsize=8, framealpha=0.9)
+    ax_lay.tick_params(labelsize=8)
     extra = f" — {len(snapshots)} layouts, showing #{layout_id}" if len(snapshots) > 1 else ""
+    if n_clipped:
+        extra += f" — {n_clipped} pointer position(s) outside the view (--fit all to include them)"
     ax_lay.set_title(f"Recorded layout, dwell per character and raw pointer trace{extra}", fontsize=10)
+
+    # ---- colour bars and legend in the strip below the layout panel -----------
+    # Both maps are laid out horizontally side by side: stacked vertically against the panel
+    # their labels sit in each other's tick labels.
+    bar_w = min(3.0, 0.30 * lay_w)
+    bar_h, bar_y = 0.17, y_lay - 0.68
+    ax_cb_d = fig.add_axes(rect_in(lay_x, bar_y, bar_w, bar_h))
+    cb_d = fig.colorbar(plt.cm.ScalarMappable(norm=norm_d, cmap=cmap_d), cax=ax_cb_d, orientation="horizontal")
+    cb_d.set_label("dwell per character (ms)", fontsize=9, labelpad=2)
+    cb_d.ax.tick_params(labelsize=8)
+    if trace:
+        ax_cb_t = fig.add_axes(rect_in(lay_x + bar_w + 1.1, bar_y, bar_w, bar_h))
+        cb_t = fig.colorbar(lc, cax=ax_cb_t, orientation="horizontal")
+        cb_t.set_label("trace time since first movement (ms)", fontsize=9, labelpad=2)
+        cb_t.ax.tick_params(labelsize=8)
+    handles, labels = ax_lay.get_legend_handles_labels()
+    if handles:
+        # anchored to the page, not to the panel: a narrow panel would put the legend on top
+        # of its own centred x label
+        fig.legend(handles, labels, loc="upper right", fontsize=8, framealpha=0.9,
+                   bbox_to_anchor=rect_in(M_L, y_lay - CB_STRIP, avail, CB_STRIP - 0.45),
+                   bbox_transform=fig.transFigure)
 
     # ---- 3. word dwell --------------------------------------------------------
     ax_word.bar(range(len(words)), wdwell, color="C0")
@@ -313,7 +459,7 @@ def plot_trial(row: dict, legacy: list[dict], out: Path | None, show: bool, dpi:
             f"mindt {stats.get('mindt')} ms · coalesced {stats.get('coal')} · handler max {stats.get('hmax')} µs · "
             f"first movement after {t_first / 1000:.2f} s · reading {(T_end - t_first) / 1000:.2f} s"
             + ("  ⚠ TRUNCATED" if stats.get("trunc") else ""))
-    fig.suptitle(info, fontsize=10)
+    fig.suptitle(info, fontsize=10, y=1 - 0.3 / fig_h)
 
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -335,6 +481,9 @@ def main(argv=None):
     ap.add_argument("--submission", help="submission id (CSV: the id column)")
     ap.add_argument("--trial", type=int, default=0, help="K-th matching charEvents row (default 0)")
     ap.add_argument("--layout", type=int, default=None, help="layout snapshot to draw (default: the most used)")
+    ap.add_argument("--fit", choices=("text", "block", "all"), default="text",
+                    help="what the layout panel frames: the text (default), the recorded text block, "
+                         "or everything the pointer touched")
     ap.add_argument("--list", action="store_true", help="list the charEvents trials in the input and exit")
     ap.add_argument("--out", type=Path, default=None, help="PNG/PDF path (default output/char_events/<item>_<condition>.png)")
     ap.add_argument("--show", action="store_true", help="open an interactive window")
@@ -349,7 +498,7 @@ def main(argv=None):
     out = args.out
     if out is None and not args.show:
         out = ROOT / "output" / "char_events" / f"{row.get('ItemId')}_{row.get('Condition')}_s{row.get('submission_row_id')}.png"
-    plot_trial(row, legacy, out, args.show, args.dpi, args.layout)
+    plot_trial(row, legacy, out, args.show, args.dpi, args.layout, args.fit)
     return 0
 
 
