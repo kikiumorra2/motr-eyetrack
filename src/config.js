@@ -50,9 +50,28 @@ export default {
   // Post-experiment survey screen (input device, hand, free-text feedback).
   survey: { enabled: true },
 
-  // Mouse sampling interval in ms: how often the word under the cursor and the mouse
-  // position are recorded while the cursor is over the text.
+  // How mouse positions are recorded during reading:
+  //   "events"   (default) character-level change events with millisecond timestamps from
+  //              every hardware pointer sample; one compact row per trial
+  //              (src/charEvents/FORMAT.md). postprocessing/1_fetch_and_flatten.py expands
+  //              it into the classic sample rows, so the rest of the pipeline is unchanged.
+  //   "interval" the original 20 Hz sampler: one row every `sampleIntervalMs` while the
+  //              cursor is over the text.
+  //   "both"     both at once (validation; largest payload).
+  samplingMode: "events",
+
+  // Mouse sampling interval in ms for "interval" / "both": how often the word under the
+  // cursor and the mouse position are recorded while the cursor is over the text.
   sampleIntervalMs: 50,
+
+  // Settings for the character-event recorder ("events" / "both").
+  charEvents: {
+    recordRawTrace: true,   // also keep every pointer sample (x, y, t), delta-coded (~3 bytes each)
+    tracePrecisionPx: 1,    // raw-trace coordinate precision in CSS px
+    maxEvents: 20000,       // per trial; further character changes are dropped (mtStats.trunc/drop)
+    maxTraceSamples: 120000, // per trial (~16 min at 125 Hz, 2 min at 1 kHz)
+    selfCheck: false,       // decode the row in the browser and log a summary (debugging)
+  },
 
   // Submit each trial's data as soon as the trial ends (recommended). MoTR produces a lot
   // of rows, and per-trial submission avoids losing everything if a participant drops out

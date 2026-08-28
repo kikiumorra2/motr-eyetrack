@@ -17,14 +17,25 @@
   cancels the blur, producing a sharp window that follows the mouse. The blurry layer has
   pointer-events: none, so the word <span>s receive the mouse events.
 
-  Data: while the cursor is over the text, every `sampleIntervalMs` a row is recorded with
-  the word under the cursor (Index/Word), its bounding box and the mouse position. "Done
-  Reading" records a marker row (Index = -1) and shows the question (if any). "Next Trial"
-  records a trial-summary row (TrialType = "trial"), optionally submits this trial's rows
-  to the server, and emits `done`. magpie adds `responseTime` (ms since screen start).
+  Data (config.samplingMode):
+    "interval"  legacy 20 Hz sampler: while the cursor is over the text, every
+                `sampleIntervalMs` a row is recorded with the word under the cursor
+                (Index/Word), its bounding box and the mouse position.
+    "events"    (default) character-event recorder (src/charEvents/): every coalesced pointer
+                sample is hit-tested against measured character boxes and only *changes* of
+                the character under the cursor are kept, with millisecond timestamps; one
+                compact row per trial (TrialType = "charEvents", see src/charEvents/FORMAT.md).
+                postprocessing/1_fetch_and_flatten.py expands it into legacy sample rows.
+    "both"      both, for validation.
+  "Done Reading" records the end-of-reading marker (Index = -1 row and/or the `e` event) and
+  shows the question (if any). "Next Trial" records a trial-summary row (TrialType = "trial"),
+  optionally submits this trial's rows to the server, and emits `done`. magpie adds
+  `responseTime` (ms since screen start).
 
     sample rows:  Experiment, Condition, ItemId, Index, Word, mousePositionX/Y,
                   wordPositionTop/Left/Bottom/Right
+    charEvents:   Experiment, Condition, ItemId, TrialType, TrialText, mtFormat, mtLayout,
+                  mtEvents, mtTrace, mtStats
     summary row:  Experiment, Condition, ItemId, TrialId, TrialType, Phase, TrialText,
                   userResponse, correctResponse, readingTime, ListId, zoomPercent,
                   devicePixelRatio, windowInnerWidth, windowInnerHeight
@@ -87,6 +98,12 @@
 import config from "../config";
 import { zoomPercent } from "../browser";
 import { submitRows } from "../submit";
+import { CharEventRecorder } from "../charEvents/recorder.js";
+import { measureLayout } from "../charEvents/measure.js";
+import { attachRecorder } from "../charEvents/dom.js";
+import { decodeRow } from "../charEvents/decoder.js";
+
+const samplingMode = () => config.samplingMode || "interval";
 
 export default {
   name: "MotrTrial",
@@ -130,10 +147,13 @@ export default {
     },
   },
   mounted() {
-    this.timer = setInterval(this.recordSample, config.sampleIntervalMs);
+    const mode = samplingMode();
+    if (mode !== "events") this.timer = setInterval(this.recordSample, config.sampleIntervalMs);
+    if (mode !== "interval") this.$nextTick(() => this.startRecorder());
   },
   beforeDestroy() {
     clearInterval(this.timer);
+    this.stopRecorder();
   },
   methods: {
     cursorEl() {
@@ -210,14 +230,64 @@ export default {
       this.currentIndex = null;
     },
 
-    finishReading() {
-      // End-of-reading marker: lets postprocessing close the fixation on the last word.
+    // --- character-event recorder (samplingMode "events" / "both") ---------------------
+    // The recorder is deliberately NOT part of data(): it is written to on every pointer
+    // sample and must not be made reactive.
+    startRecorder() {
+      const el = this.$el.querySelector(".readingText");
+      if (!el || this._recorder) return;
+      const recorder = new CharEventRecorder(config.charEvents || {});
+      const t0 = performance.now();
+      const screenStart = this.$magpie.responseTimeStart || Date.now();
+      recorder.start(t0, this.words, measureLayout(el, this.words), {
+        t0Response: Date.now() - screenStart,
+        tsrc: "event",
+      });
+      this._recorder = recorder;
+      this._detachRecorder = attachRecorder({ recorder, readingTextEl: el, words: this.words });
+    },
+
+    stopRecorder() {
+      if (this._detachRecorder) this._detachRecorder();
+      this._detachRecorder = null;
+    },
+
+    /** Ends the recording and stores the trial's charEvents row. */
+    pushCharEventsRow() {
+      const recorder = this._recorder;
+      if (!recorder) return;
+      recorder.end(performance.now());
+      const fields = recorder.fields();
       this.$magpie.addTrialData({
         ...this.baseRow(),
-        Index: -1,
-        mousePositionX: this.mouse.x,
-        mousePositionY: this.mouse.y,
+        TrialType: "charEvents",
+        TrialText: this.trial.text,
+        ...fields,
       });
+      if (config.charEvents && config.charEvents.selfCheck) {
+        const decoded = decodeRow(fields);
+        const size = Object.values(fields).reduce((n, v) => n + v.length, 0);
+        console.assert(decoded.events.length === recorder.events.length, "charEvents self-check: event count");
+        console.log(
+          `charEvents ${this.trial.item_id}: ${decoded.events.length} events, ${decoded.trace.length} trace samples, ` +
+            `${decoded.snapshots.length} layout(s), ${size} bytes, stats ${fields.mtStats}`
+        );
+      }
+    },
+
+    finishReading() {
+      const mode = samplingMode();
+      if (mode !== "events") {
+        // End-of-reading marker: lets postprocessing close the fixation on the last word.
+        this.$magpie.addTrialData({
+          ...this.baseRow(),
+          Index: -1,
+          mousePositionX: this.mouse.x,
+          mousePositionY: this.mouse.y,
+        });
+      }
+      if (mode !== "interval") this.pushCharEventsRow();
+      this.stopRecorder();
       this.currentIndex = null;
       this.cursorEl().classList.remove("grow", "blank");
       this.readingTime = Date.now() - this.readingStart;

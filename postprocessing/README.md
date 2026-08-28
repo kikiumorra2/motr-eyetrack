@@ -5,8 +5,10 @@
 You need Python 3.9 or newer ([python.org](https://www.python.org/downloads/)) and, the
 first time only, an internet connection. No other setup.
 
-1. **Download** the results of your experiment from the magpie server as a CSV file and
-   save it in the project folder, e.g. as `results/raw/export.csv`.
+1. **Download** the results of your experiment from the magpie server as a CSV file
+   (magpie-serverless: *Download results* on the experiment's page; a dump of the classic
+   magpie results table works too) and save it in the project folder, e.g. as
+   `results/raw/export.csv`.
 2. **Open a terminal in the project folder.**
    macOS: right-click the folder in Finder → *Services* → *New Terminal at Folder*
    (or open Terminal and type `cd `, drag the folder into the window, press Enter).
@@ -22,11 +24,14 @@ first time only, an internet connection. No other setup.
    The first run creates a private Python environment in `.venv/` and installs the
    required packages (about a minute). Every later run takes seconds.
 4. **Your data** is in `output/exp_42/reading_measures_all.csv` — one row per participant
-   × word, ready for R, Python or Excel.
+   × word, ready for R, Python or Excel. The command's last step checks that file
+   (`check_reading_measures.py`); if it prints `INVARIANTS VIOLATED` or `DIFFERS`, do not
+   use the output — something upstream is wrong.
 
 Useful options: `--require-prolific-id` (keep only participants whose ID is a 24-character
 Prolific ID), `--min-trials 30` (drop participants who did not finish), `--low-thres` /
-`--up-thres` (fixation duration limits in ms; default 160 and 4000).
+`--up-thres` (fixation duration limits in ms; default 160 and 4000), `--char-events`
+and `--resample` (below).
 
 Try it before collecting any data:
 
@@ -34,6 +39,54 @@ Try it before collecting any data:
 python3 scripts/simulate_results.py --experiment-id 0 --n-participants 3
 python3 postprocessing/run_pipeline.py --experiment-id 0 --csv results/exp_0/simulated_export.csv
 ```
+
+`simulate_results.py --format legacy|events|both` (default `events`) chooses the recording
+format; the same `--seed` produces the same simulated pointer paths in every format.
+
+## Character-event data (`samplingMode: "events"`)
+
+With the default app setting, each trial arrives as **one** row (`TrialType = "charEvents"`)
+holding the character boxes, the millisecond change events and (optionally) the raw pointer
+trace in compact text fields (`src/charEvents/FORMAT.md`). Step 1 decodes them
+(`postprocessing/motr_char_events.py`):
+
+- `--char-events auto` (default): expand charEvents rows into the classic sample rows — one
+  row per character change (`Index`, `Word`, `responseTime`, `mousePositionX/Y`,
+  `wordPosition*`, plus `charIndex`) and the `Index = -1` end marker — so steps 2–3 run
+  unchanged. If a submission also contains legacy 20 Hz rows (`samplingMode: "both"`), the
+  legacy rows are used and the charEvents row is dropped.
+- `--char-events expand`: always use the events (drops legacy rows in `both` data);
+  `ignore`: drop charEvents rows; `keep`: leave them untouched.
+- `--resample 50`: with `expand`, emit one row every 50 ms (the state at each tick) instead of
+  one per change. The pipeline output is then identical to what the legacy sampler would have
+  produced from the same pointer movement — useful to compare studies across modes.
+- In all modes a character-level table is written:
+  `results/exp_<ID>/char_events_exp_<ID>_<date>.csv` — one row per event with `t` (ms since
+  the trial screen started), `dt`, `kind` (`c` character, `n` no word, `o` outside the text,
+  `l` layout change, `h`/`s` tab hidden/shown, `e` done reading, `t` truncated), `word_idx`,
+  `char_idx` (0 = leading space, 1… the word's characters, last = trailing space), `char`,
+  `global_idx`, `layout_id`, `x`, `y`.
+
+Because character changes are timestamped to the millisecond, durations are no longer
+multiples of 50 ms and short excursions onto a neighbouring word are no longer missed. Expect
+word-level measures to differ slightly from a 20 Hz study; `--resample 50` gives the
+apples-to-apples numbers. `mtStats` in the raw row records per-trial diagnostics (`coal`:
+coalesced events available, `mindt`: smallest inter-sample interval, `hmax`: slowest handler
+call in µs, `trunc`: event cap hit). To look at a session recorded locally (`mode: "debug"` in
+`src/magpie.config.js`, `npm run serve`): the app collects every row in `window.__motrRows`;
+in the browser console run `copy(JSON.stringify(window.__motrRows))`, paste into `rows.json`,
+then
+
+```bash
+python3 postprocessing/plot_char_events.py --rows rows.json --list          # trials in the file
+python3 postprocessing/plot_char_events.py --rows rows.json --item 3 --show  # scanpath, dwell heatmap, trace, diagnostics
+python3 postprocessing/motr_char_events.py --check rows.json                 # decode + agreement with legacy rows ("both" mode)
+```
+
+`plot_char_events.py --csv export.csv` does the same for a server export or a simulated one. The
+layout panel is framed on the text and sized from its aspect ratio; `--fit block` frames the whole
+recorded text block instead and `--fit all` every position the pointer visited (which shows the
+strokes that enter and leave the screen, at the price of much smaller words).
 
 ## What the output contains
 
@@ -73,9 +126,13 @@ of completed trials.
 
 ## Getting the data off the server
 
-- **CSV export** (`--csv`): a dump of the magpie results table with columns `id`,
-  `experiment_id`, `results`, … where `results` holds each submission as a JSON array of rows
-  (plain JSON or Postgres' `{"{\"...\"}"}` array syntax are both accepted).
+- **CSV export** (`--csv`), either format (detected from the columns):
+  - the **magpie-serverless** "download results" file (https://magpie-serverless.vercel.app):
+    already flattened, one line per submitted row, with a `submission_id` column that groups
+    the rows of one submission;
+  - a dump of the classic magpie-backend results table with columns `id`, `experiment_id`,
+    `results`, … where `results` holds each submission as a JSON array of rows (plain JSON or
+    Postgres' `{"{\"...\"}"}` array syntax are both accepted).
 - **Direct database access** (`--db`): set the environment variables `MOTR_DB_NAME`,
   `MOTR_DB_USER`, `MOTR_DB_PASS`, `MOTR_DB_HOST` (and `MOTR_DB_TABLE`, default `results`),
   install `psycopg2-binary`, and run with `--db` instead of `--csv`. Never commit credentials.
@@ -83,20 +140,26 @@ of completed trials.
 ## How the pipeline works
 
 ```
-raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/results_processed_exp_<ID>_<date>.csv  (one row per mouse sample)
+raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/results_processed_exp_<ID>_<date>.csv  (one row per mouse sample / character change)
+                                               results/exp_<ID>/char_events_exp_<ID>_<date>.csv       (one row per character event)
                                                results/exp_<ID>/participants_exp_<ID>_<date>.csv
                                                results/exp_<ID>/items_processed.csv
                 ──▶ 2_compute_reading_measures.py (the MoTR pipeline, utils/)
                                                output/exp_<ID>/divided/, corrected_divided/, processed_trial/, associations/
                                                output/exp_<ID>/reading_measures/reader_<participant>_reading_measures.csv
                 ──▶ 3_aggregate.py          ──▶ output/exp_<ID>/reading_measures_all.csv
+                ──▶ check_reading_measures.py   sanity checks of that file (invariants, and every
+                                                measure recomputed independently from the
+                                                association files); a failure stops the pipeline
 ```
 
-`run_pipeline.py` simply runs the three scripts in order; each can also be run on its own
+`run_pipeline.py` simply runs the four scripts in order; each can also be run on its own
 (`--help` lists the options).
 
 **Step 1** parses the JSON of every submission (one per trial, plus one for the survey),
-broadcasts the per-participant columns to every row, drops the survey rows from the sample
+broadcasts the per-participant columns from each submission's first row to all its rows (a
+submission without a `SubjectId` cannot be assigned to anyone - it is dropped with a loud
+warning; the app puts the id on every submission in `src/submit.js`), drops the survey rows from the sample
 file, builds `ItemId = <item_id>_<condition_id>`, and renames `userResponse → response`,
 `SubjectId → submission_id`. The sample file has one row per mouse sample with `Index` /
 `Word` (word under the cursor; `-1` = no word, or the end-of-reading marker), `responseTime`

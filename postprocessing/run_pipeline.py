@@ -10,6 +10,8 @@ What it does:
   1. 1_fetch_and_flatten.py        raw submissions -> flat sample file + participants table
   2. 2_compute_reading_measures.py  -> per-participant reading measures (the MoTR pipeline)
   3. 3_aggregate.py                 -> output/exp_<ID>/reading_measures_all.csv
+  4. check_reading_measures.py      sanity checks: invariants of the measures + an independent
+                                    recomputation from the association files (fails loudly)
 
 Options (all optional):
   --db                    read from the magpie database instead of a CSV export (see README)
@@ -64,6 +66,10 @@ def main():
     parser.add_argument("--min-trials", type=int, default=0)
     parser.add_argument("--low-thres", type=int, default=160)
     parser.add_argument("--up-thres", type=int, default=4000)
+    parser.add_argument("--char-events", choices=["auto", "expand", "ignore", "keep"], default="auto",
+                        help="how step 1 treats charEvents rows (samplingMode 'events'); default auto")
+    parser.add_argument("--resample", type=float, default=None, metavar="MS",
+                        help="step 1: expand charEvents rows into fixed-interval rows every MS ms")
     args = parser.parse_args()
 
     if args.csv and not args.csv.exists():
@@ -73,10 +79,15 @@ def main():
     step1 += ["--db"] if args.db else ["--csv", args.csv]
     if args.require_prolific_id:
         step1.append("--require-prolific-id")
+    step1 += ["--char-events", args.char_events]
+    if args.resample is not None:
+        step1 += ["--resample", args.resample]
     run("1_fetch_and_flatten.py", *step1)
     run("2_compute_reading_measures.py", "--experiment-id", args.experiment_id,
         "--low-thres", args.low_thres, "--up-thres", args.up_thres)
     run("3_aggregate.py", "--experiment-id", args.experiment_id)
+    run("check_reading_measures.py", "--experiment-id", args.experiment_id,
+        "--low-thres", args.low_thres, "--up-thres", args.up_thres)
 
     out = ROOT / "output" / f"exp_{args.experiment_id}" / "reading_measures_all.csv"
     print("\n" + "=" * 78 + f"\nDone. Your data: {out}\n" + "=" * 78, flush=True)

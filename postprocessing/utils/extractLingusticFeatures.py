@@ -22,7 +22,9 @@ class FeatureExtractor:
 
         self.output_path = output_data_path
         self.output_df = pd.read_csv(self.input_path_trial, na_values=["NA"])
-        self.output_name_stem = self.input_path_associations.stem.split("_")[1]
+        # reader_<participant>_clean.csv -> <participant>; the id itself may contain underscores
+        stem = self.input_path_associations.stem
+        self.output_name_stem = stem[len("reader_"):-len("_clean")] if stem.startswith("reader_") and stem.endswith("_clean") else stem.split("_")[1]
         self.threshold = association_threshold
 
         self.input_df_ff = self.input_df_f.loc[
@@ -258,6 +260,11 @@ class FeatureExtractor:
         self.output_df = self.output_df.merge(
             solution_df, on=["cond_id", "para_nr", "word_nr"], how="left"
         )
+        # The answer is a property of the trial: spread it over every word of the trial,
+        # including words that never received an association (FPFix = 0).
+        self.output_df["response_chosen"] = self.output_df.groupby(
+            ["cond_id", "para_nr"], sort=False
+        )["response_chosen"].transform("first")
         # solution_to_fill = self.output_df.groupby(['para_nr'])['response_chosen'].first()
         # solution_to_fill = self.output_df.groupby(['expr_id', 'para_nr'])['response_chosen'].first()
         # solution_to_fill = self.output_df.groupby(["para_nr", "cond_id"])[

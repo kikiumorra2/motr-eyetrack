@@ -217,7 +217,8 @@ export default {
   },
   methods: {
     consent() {
-      // Experiment-level data: merged into every submitted row by magpie.
+      // Experiment-level data. magpie merges it into the first row of getAllData() only;
+      // src/submit.js puts it on the first row of every submission.
       this.$magpie.addExpData({
         SubjectId: this.$magpie.measurements.SubjectID,
         ListId: this.listId,

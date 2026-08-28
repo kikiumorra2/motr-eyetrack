@@ -52,12 +52,20 @@ word"; the output does not distinguish a skipped word from an unmeasured one (§
 
 ## 2. Raw data: mouse samples
 
-### 2.1 One sample every 50 ms
+### 2.1 One sample every 50 ms (`samplingMode: "interval"`) — or one row per character change (`"events"`)
 
-While a sentence is on screen and the pointer is inside the text block (the padded box
-that contains the sentence, `.readingText`), the app records a row every `sampleIntervalMs`
-(50 ms, `src/config.js`). The timer fires whether or not the pointer moves, so a
-stationary pointer keeps producing samples. Each sample row has:
+In the legacy mode, while a sentence is on screen and the pointer is inside the text block
+(the padded box that contains the sentence, `.readingText`), the app records a row every
+`sampleIntervalMs` (50 ms, `src/config.js`). The timer fires whether or not the pointer
+moves, so a stationary pointer keeps producing samples.
+
+In the default **character-event mode** the app instead records, with millisecond
+timestamps, every change of the *character* under the pointer (from every hardware pointer
+sample, see `src/charEvents/FORMAT.md`), and step 1 of the pipeline expands that record into
+rows of exactly the shape below — one row per character change, `Index` being the word the
+character belongs to (the gap after a word counts as that word, as with the legacy hit test),
+plus the same `Index = −1` marker at "Done Reading". Everything from §2.2 on applies
+unchanged; the only differences are noted where they matter. Each sample row has:
 
 | field | meaning |
 |---|---|
@@ -142,7 +150,11 @@ Consequences worth internalising:
 
 - A duration runs until the *next* word is detected, so it includes the movement to that
   word (up to one sampling interval). A single-sample visit has a duration of ≈ 50 ms, not
-  0. Durations are multiples of the (jittery) sampling interval.
+  0. Durations are multiples of the (jittery) sampling interval. *Character-event mode:*
+  the next word is detected the moment the pointer crosses into it, so durations are exact
+  to the millisecond (not multiples of 50 ms), and a brief pass over a neighbouring word
+  that 20 Hz sampling would have missed now splits the association. `--resample 50` in
+  step 1 reproduces the legacy behaviour exactly for comparisons.
 - No samples are recorded while the pointer is off the text block, but a run is only broken
   by a sample with a *different* `Index`. Time spent away from the text is therefore
   absorbed into the association that was active when the pointer left: leave from word 3 and
@@ -362,9 +374,22 @@ duration analyses, treat 0 as missing: keep rows with `FPFix = 1` for `gaze_dura
 - `FPFix = 1 ⇔ gaze_duration > 0 ⇔ first_pass_duration > 0 ⇔ right_bounded_rt > 0 ⇔ go_past_time > 0`
 - `gaze_duration ∈ {0, first_duration}`
 - `gaze_duration ≤ first_pass_duration ≤ right_bounded_rt ≤ go_past_time`, and `right_bounded_rt ≤ total_duration`
-- `FPReg = 1 ⇒ FPFix = 1`
-- `RegIn_excl ≤ RegIn_incl`; `RegIn_excl = 1 ⇒ FPFix = 1`;
-  `RegIn_incl = 1 and FPFix = 0` ⇒ skipped in first pass, visited later
+- `FPFix = 1 ⇒ gaze_duration = first_duration`
+- `RegIn_incl = 1 ⇔ total_duration > right_bounded_rt` (the associations on a word are
+  exactly those before any word to its right was visited — `right_bounded_rt` — plus the
+  regressive ones; so `FPFix = 0 and total_duration > 0 ⇒ RegIn_incl = 1`)
+- `RegIn_excl = RegIn_incl and FPFix`
+- `FPReg = 1 ⇔ go_past_time > right_bounded_rt` (hence `FPReg = 1 ⇒ FPFix = 1`)
+- `first_duration = 0` or `low_thres < first_duration < up_thres`; `first_pass_duration ≤ total_duration`
+- **Not** an identity: `total_duration > first_duration ⇒ RegIn_incl = 1`. A second
+  association on a word also arises without any word to the right having been visited —
+  after a regression to the *left* and back, or after a removed `−1` / sub-threshold
+  excursion (*attacked* in §6: `total 500 > first 300`, `RegIn_incl = 0`).
+
+`check_reading_measures.py` (step 4 of `run_pipeline.py`) verifies all of these on every row,
+plus per-trial consistency (`response_chosen`, `trial_num`, `word_nr = 0…n−1`), and recomputes
+every measure independently from the association files; the §6 example is pinned by
+`tests/test_reading_measures.py`.
 
 ---
 
@@ -373,7 +398,10 @@ duration analyses, treat 0 as missing: keep rows with `FPFix = 1` for `gaze_dura
 - **`response_chosen`** — the answer on the trial's summary row, copied to every word of the
   trial. Mechanics: back-filled onto the sample rows within the trial (§3.1), carried on
   each association, attached to the visited words, then spread over all words of the trial
-  in `3_aggregate.py`. A trial without an answer (an item without a question, or the
+  — skipped words (`FPFix = 0`) included — already in step 2
+  (`FeatureExtractor.check_comprehension_answer`), so the per-participant
+  `reader_*_reading_measures.csv` files and `reading_measures_all.csv` agree; step 3 repeats
+  the spread as a safety net. A trial without an answer (an item without a question, or the
   question disabled) is kept with `response_chosen = NA`; step 3 prints a warning with the
   number of such trials. (The original MoTR package back-filled across trial boundaries and
   dropped answerless trials; this template does not.)
@@ -477,8 +505,10 @@ of trials without an answer (kept with `response_chosen = NA`), and any use of t
 coordinates. The output is the raw per-word measure for every kept
 trial; all further cleaning is up to the analyst.
 
-Parameters that change the numbers: `--low-thres`, `--up-thres` (above), and
-`sampleIntervalMs` in `src/config.js` (resolution of every duration; 50 ms by default).
+Parameters that change the numbers: `--low-thres`, `--up-thres` (above), `samplingMode`
+in `src/config.js` (millisecond character events vs. the 50 ms timer; `sampleIntervalMs`
+is the resolution of every duration in the legacy mode) and, for character-event data,
+`--char-events` / `--resample` in step 1.
 
 ---
 
