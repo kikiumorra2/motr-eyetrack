@@ -82,6 +82,12 @@ def test_pipeline_equivalence(tmp_path):
     both_expand = pipeline(tmp_path, "both_expand", exports["both"], "--char-events", "expand")
 
     assert len(legacy) > 100 and set(KEY + DURATIONS + BINARY) <= set(legacy.columns)
+    # per-participant step-2 files: the answer is trial-level, so it is on every word of an
+    # answered trial - skipped words (FPFix = 0) included - before step 3 ever runs
+    per = pd.concat([pd.read_csv(p) for p in (tmp_path / "out_legacy" / "exp_0" / "reading_measures").glob("reader_*_reading_measures.csv")])
+    answered = per.groupby(["cond_id", "para_nr"])["response_chosen"].transform(lambda s: s.notna().any())
+    assert answered.any() and (per.loc[answered, "FPFix"] == 0).any()
+    assert per.loc[answered, "response_chosen"].notna().all()
     # 1) resampling the events at the legacy interval reproduces the legacy pipeline exactly
     pd.testing.assert_frame_equal(legacy, resampled)
     pd.testing.assert_frame_equal(legacy, both_auto)

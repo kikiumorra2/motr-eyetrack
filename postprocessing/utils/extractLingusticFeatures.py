@@ -258,6 +258,11 @@ class FeatureExtractor:
         self.output_df = self.output_df.merge(
             solution_df, on=["cond_id", "para_nr", "word_nr"], how="left"
         )
+        # The answer is a property of the trial: spread it over every word of the trial,
+        # including words that never received an association (FPFix = 0).
+        self.output_df["response_chosen"] = self.output_df.groupby(
+            ["cond_id", "para_nr"], sort=False
+        )["response_chosen"].transform("first")
         # solution_to_fill = self.output_df.groupby(['para_nr'])['response_chosen'].first()
         # solution_to_fill = self.output_df.groupby(['expr_id', 'para_nr'])['response_chosen'].first()
         # solution_to_fill = self.output_df.groupby(["para_nr", "cond_id"])[

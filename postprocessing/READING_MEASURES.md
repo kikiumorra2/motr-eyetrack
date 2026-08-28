@@ -385,7 +385,10 @@ duration analyses, treat 0 as missing: keep rows with `FPFix = 1` for `gaze_dura
 - **`response_chosen`** — the answer on the trial's summary row, copied to every word of the
   trial. Mechanics: back-filled onto the sample rows within the trial (§3.1), carried on
   each association, attached to the visited words, then spread over all words of the trial
-  in `3_aggregate.py`. A trial without an answer (an item without a question, or the
+  — skipped words (`FPFix = 0`) included — already in step 2
+  (`FeatureExtractor.check_comprehension_answer`), so the per-participant
+  `reader_*_reading_measures.csv` files and `reading_measures_all.csv` agree; step 3 repeats
+  the spread as a safety net. A trial without an answer (an item without a question, or the
   question disabled) is kept with `response_chosen = NA`; step 3 prints a warning with the
   number of such trials. (The original MoTR package back-filled across trial boundaries and
   dropped answerless trials; this template does not.)
