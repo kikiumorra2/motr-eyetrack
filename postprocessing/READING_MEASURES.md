@@ -374,9 +374,22 @@ duration analyses, treat 0 as missing: keep rows with `FPFix = 1` for `gaze_dura
 - `FPFix = 1 ⇔ gaze_duration > 0 ⇔ first_pass_duration > 0 ⇔ right_bounded_rt > 0 ⇔ go_past_time > 0`
 - `gaze_duration ∈ {0, first_duration}`
 - `gaze_duration ≤ first_pass_duration ≤ right_bounded_rt ≤ go_past_time`, and `right_bounded_rt ≤ total_duration`
-- `FPReg = 1 ⇒ FPFix = 1`
-- `RegIn_excl ≤ RegIn_incl`; `RegIn_excl = 1 ⇒ FPFix = 1`;
-  `RegIn_incl = 1 and FPFix = 0` ⇒ skipped in first pass, visited later
+- `FPFix = 1 ⇒ gaze_duration = first_duration`
+- `RegIn_incl = 1 ⇔ total_duration > right_bounded_rt` (the associations on a word are
+  exactly those before any word to its right was visited — `right_bounded_rt` — plus the
+  regressive ones; so `FPFix = 0 and total_duration > 0 ⇒ RegIn_incl = 1`)
+- `RegIn_excl = RegIn_incl and FPFix`
+- `FPReg = 1 ⇔ go_past_time > right_bounded_rt` (hence `FPReg = 1 ⇒ FPFix = 1`)
+- `first_duration = 0` or `low_thres < first_duration < up_thres`; `first_pass_duration ≤ total_duration`
+- **Not** an identity: `total_duration > first_duration ⇒ RegIn_incl = 1`. A second
+  association on a word also arises without any word to the right having been visited —
+  after a regression to the *left* and back, or after a removed `−1` / sub-threshold
+  excursion (*attacked* in §6: `total 500 > first 300`, `RegIn_incl = 0`).
+
+`check_reading_measures.py` (step 4 of `run_pipeline.py`) verifies all of these on every row,
+plus per-trial consistency (`response_chosen`, `trial_num`, `word_nr = 0…n−1`), and recomputes
+every measure independently from the association files; the §6 example is pinned by
+`tests/test_reading_measures.py`.
 
 ---
 

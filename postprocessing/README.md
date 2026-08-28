@@ -144,9 +144,12 @@ raw submissions ──▶ 1_fetch_and_flatten.py ──▶ results/exp_<ID>/resu
                                                output/exp_<ID>/divided/, corrected_divided/, processed_trial/, associations/
                                                output/exp_<ID>/reading_measures/reader_<participant>_reading_measures.csv
                 ──▶ 3_aggregate.py          ──▶ output/exp_<ID>/reading_measures_all.csv
+                ──▶ check_reading_measures.py   sanity checks of that file (invariants, and every
+                                                measure recomputed independently from the
+                                                association files); a failure stops the pipeline
 ```
 
-`run_pipeline.py` simply runs the three scripts in order; each can also be run on its own
+`run_pipeline.py` simply runs the four scripts in order; each can also be run on its own
 (`--help` lists the options).
 
 **Step 1** parses the JSON of every submission (one per trial, plus one for the survey),

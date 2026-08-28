@@ -10,6 +10,8 @@ What it does:
   1. 1_fetch_and_flatten.py        raw submissions -> flat sample file + participants table
   2. 2_compute_reading_measures.py  -> per-participant reading measures (the MoTR pipeline)
   3. 3_aggregate.py                 -> output/exp_<ID>/reading_measures_all.csv
+  4. check_reading_measures.py      sanity checks: invariants of the measures + an independent
+                                    recomputation from the association files (fails loudly)
 
 Options (all optional):
   --db                    read from the magpie database instead of a CSV export (see README)
@@ -84,6 +86,8 @@ def main():
     run("2_compute_reading_measures.py", "--experiment-id", args.experiment_id,
         "--low-thres", args.low_thres, "--up-thres", args.up_thres)
     run("3_aggregate.py", "--experiment-id", args.experiment_id)
+    run("check_reading_measures.py", "--experiment-id", args.experiment_id,
+        "--low-thres", args.low_thres, "--up-thres", args.up_thres)
 
     out = ROOT / "output" / f"exp_{args.experiment_id}" / "reading_measures_all.csv"
     print("\n" + "=" * 78 + f"\nDone. Your data: {out}\n" + "=" * 78, flush=True)

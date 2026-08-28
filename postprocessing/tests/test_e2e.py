@@ -33,6 +33,8 @@ def pipeline(tmp, name, export, *step1_args):
         "--trial-file", res / "items_processed.csv", "--out-dir", out)
     run(PP / "3_aggregate.py", "--experiment-id", "0", "--out-dir", out,
         "--participants", next(res.glob("participants_exp_0_*.csv")))
+    # step 4: invariants + reference recomputation must pass on every variant
+    run(PP / "check_reading_measures.py", "--experiment-id", "0", "--out-dir", out)
     return pd.read_csv(out / "exp_0" / "reading_measures_all.csv")
 
 
