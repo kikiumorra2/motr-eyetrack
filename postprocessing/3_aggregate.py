@@ -51,8 +51,8 @@ def main():
     df.insert(2, "condition_id", split[1])
     df = df.drop(columns=["cond_id"], errors="ignore")
 
-    # The pipeline only attaches the response to words that received a fixation;
-    # it is a trial-level property, so spread it over every word of the trial.
+    # Step 2 already spreads the (trial-level) answer over every word of the trial; repeat it
+    # here as a safety net for per-participant files produced by older versions.
     df["response_chosen"] = df.groupby(["submission_id", "para_nr"])["response_chosen"].transform("first")
 
     # participant info

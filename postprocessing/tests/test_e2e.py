@@ -1,5 +1,5 @@
 """End-to-end: simulate exports in both formats from the same pointer paths, run steps
-1→3 on each (in a temp dir), and compare the final reading measures.
+1→4 on each (in a temp dir), and compare the final reading measures.
 
   legacy  ==  events + `--char-events expand --resample 50`   (byte-identical)
   legacy  ~=  events (raw millisecond events)                  (within 50 ms quantization)

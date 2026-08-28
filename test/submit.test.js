@@ -20,7 +20,7 @@ test("withExpData fills missing experiment-level fields on the first row only an
   assert.equal(rows[0].SubjectId, null);                     // input not mutated
   const kept = withExpData([{ SubjectId: "keep", ListId: 7, Experiment: "x" }], EXP)[0];
   assert.deepEqual(kept, { SubjectId: "keep", ListId: 7, Experiment: "x", experiment_start_time: 1700000000000 });
-  assert.equal(withExpData([{ SubjectId: "NA" }], EXP)[0].SubjectId, "abc123");   // magpie's "NA" counts as missing
+  assert.equal(withExpData([{ SubjectId: "NA" }], EXP)[0].SubjectId, "abc123");   // "NA" (older exports, simulator) counts as missing too
   assert.deepEqual(withExpData([], EXP), []);
   assert.deepEqual(withExpData([{ a: 1 }], undefined), [{ a: 1 }]);
 });

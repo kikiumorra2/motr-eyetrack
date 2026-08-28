@@ -5,8 +5,10 @@
 You need Python 3.9 or newer ([python.org](https://www.python.org/downloads/)) and, the
 first time only, an internet connection. No other setup.
 
-1. **Download** the results of your experiment from the magpie server as a CSV file and
-   save it in the project folder, e.g. as `results/raw/export.csv`.
+1. **Download** the results of your experiment from the magpie server as a CSV file
+   (magpie-serverless: *Download results* on the experiment's page; a dump of the classic
+   magpie results table works too) and save it in the project folder, e.g. as
+   `results/raw/export.csv`.
 2. **Open a terminal in the project folder.**
    macOS: right-click the folder in Finder → *Services* → *New Terminal at Folder*
    (or open Terminal and type `cd `, drag the folder into the window, press Enter).
@@ -22,7 +24,9 @@ first time only, an internet connection. No other setup.
    The first run creates a private Python environment in `.venv/` and installs the
    required packages (about a minute). Every later run takes seconds.
 4. **Your data** is in `output/exp_42/reading_measures_all.csv` — one row per participant
-   × word, ready for R, Python or Excel.
+   × word, ready for R, Python or Excel. The command's last step checks that file
+   (`check_reading_measures.py`); if it prints `INVARIANTS VIOLATED` or `DIFFERS`, do not
+   use the output — something upstream is wrong.
 
 Useful options: `--require-prolific-id` (keep only participants whose ID is a 24-character
 Prolific ID), `--min-trials 30` (drop participants who did not finish), `--low-thres` /

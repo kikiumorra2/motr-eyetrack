@@ -114,6 +114,13 @@ when several boxes qualify, the right-most (later in DOM order) wins. The same r
 to `B`. Both implementations follow it exactly (verified against the engine in
 `test/browser.test.js`).
 
+The coordinates are those of the pointer events, which Chrome reports with sub-pixel
+precision on many devices; the legacy sampler's `mousemove` coordinates are truncated to
+whole CSS pixels. The rule is the same, the input differs by < 1 px, so the two can disagree
+while the pointer rests within a pixel of a box edge (in a validation session on a real
+mouse: 0.5 % of the 50 ms rows, in two brief rests). `mtTrace` rounds to `px`, so the
+fraction itself is not stored.
+
 ## `mtTrace`
 
 Every pointer sample fed to the recorder (all coalesced events, whole document) as

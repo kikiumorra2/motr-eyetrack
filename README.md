@@ -25,6 +25,11 @@ src/
   submit.js                 ← the one place that sends data to the server
   browser.js                ← zoom / screen measurements
   main.js                   ← boots Vue + magpie
+  charEvents/               ← character-event recorder (default samplingMode "events"):
+    FORMAT.md               ←   the motr-ce/1 format spec
+    measure.js, layout.js   ←   character boxes from the DOM; hit test (mirrors elementFromPoint)
+    recorder.js, dom.js     ←   state machine; pointer / resize / visibility wiring
+    format.js, vlq.js, decoder.js ← codecs and the decoder (mirrored in postprocessing/motr_char_events.py)
 materials/
   items.csv                 ← all critical items × conditions (source of truth)
   lists/list_NN.csv         ← one list per participant group (generated)
@@ -40,8 +45,11 @@ postprocessing/
   1_fetch_and_flatten.py    ← raw submissions → flat sample CSV
   2_compute_reading_measures.py ← MoTR pipeline → per-participant reading measures
   3_aggregate.py            ← one analysis-ready CSV
+  check_reading_measures.py ← step 4: sanity checks of that CSV (invariants + independent recomputation)
+  motr_char_events.py       ← Python decoder / encoder of the motr-ce/1 format (used by step 1)
+  plot_char_events.py       ← scanpath / dwell / trace figure for one trial
   READING_MEASURES.md       ← exact definition of every reading measure (read before analysing)
-  plot_trial_mouse_overlay.py, utils/, README.md
+  plot_trial_mouse_overlay.py, utils/, tests/, README.md
 results/                    ← downloaded / flattened data   (git-ignored)
 output/                     ← pipeline output               (git-ignored)
 .github/workflows/          ← build & deploy to GitHub Pages on push
@@ -70,7 +78,7 @@ would be submitted.
    `[DURATION]`, `[IRB / ETHICS COMMITTEE]`).
 4. **Test** – `npm run serve`, run through the experiment, check the console output. Try
    `?LIST_ID=2` to force a list.
-5. **Deploy** – push to GitHub `main`; the workflow builds and publishes to the `gh-pages`
+5. **Deploy** – push to GitHub (`main` or `master`); the workflow builds and publishes to the `gh-pages`
    branch (enable Pages → branch `gh-pages` in the repo settings). The study URL is
    `https://<user>.github.io/<repo>/?LIST_ID=1`. Alternatively `npm run build` and host
    `dist/` anywhere (`npm start` serves it with Express).
@@ -138,6 +146,14 @@ What gets recorded depends on `samplingMode` in `src/config.js`:
   (`Index = -1`) so the last word's fixation can be closed.
 - **`"both"`** — both at once, for validation studies.
 
+Which one? `"events"` unless you have a reason: it is the default, records everything the
+hardware reports, and yields the same reading measures as the 50 ms sampler on the same
+movement — to the millisecond rather than to the tick (`postprocessing/READING_MEASURES.md`
+§3.2 and §4.12 list the differences). Use `"interval"` to reproduce a published 20 Hz MoTR
+study exactly (or pass `--resample 50` to the pipeline, which turns the events into the same
+50 ms rows). `"both"` roughly doubles each trial's payload and is meant for validation; the
+pipeline then uses the legacy rows unless you pass `--char-events expand`.
+
 `postprocessing/1_fetch_and_flatten.py` expands charEvents rows back into the classic
 per-sample rows (one row per character change, plus the marker), so the rest of the pipeline
 is identical for all modes; it also writes a character-level table.
@@ -157,19 +173,45 @@ Each submission is one JSON array of rows. Its **first row** carries the experim
 on the first row of *all* recorded data, so `src/submit.js` adds it to every per-trial submission
 and to the survey row (step 1 spreads it over the submission's other rows). Rows hold either sample columns,
 the per-trial `charEvents` fields (`samplingMode: "events"`; see `src/charEvents/FORMAT.md`)
-or summary columns; magpie fills absent columns with `"NA"`. `1_fetch_and_flatten.py`
-produces the flat CSV documented in `postprocessing/README.md`.
+or summary columns; magpie fills absent columns with `""`. `1_fetch_and_flatten.py` reads
+both export formats — the magpie-serverless *Download results* CSV (already flattened, one
+line per row, grouped by `submission_id`) and the classic results-table dump (`id`,
+`experiment_id`, `results` with one JSON array per submission) — and produces the flat CSV
+documented in `postprocessing/README.md`.
+
+## Verifying an experiment end-to-end
+
+Before recruiting, run the whole path once yourself — ten minutes, and it catches the
+configuration mistakes no unit test can:
+
+1. `npm run serve` with `mode: "debug"`, complete a few trials, then in the browser console
+   run `copy(JSON.stringify(window.__motrRows))` and paste the result into `rows.json`.
+   `python3 postprocessing/motr_char_events.py --check rows.json` decodes every trial and,
+   with `samplingMode: "both"`, reports how often the 50 ms rows agree with the character
+   events (expect ≥ 95 %; the disagreements are the end-marker row, timer ticks a few ms
+   after a pointer sample, and — on hardware that reports fractional pointer positions —
+   moments when the pointer rests within 1 px of a box edge, see `src/charEvents/FORMAT.md`). `python3 postprocessing/plot_char_events.py --rows
+   rows.json --item <item>` draws the scanpath, the character boxes and the raw trace.
+2. Point `src/magpie.config.js` at your server and experiment ID with `mode: "directLink"`,
+   complete one full session (enter a 24-character hex ID on the consent screen so
+   `--require-prolific-id` accepts it), download the results and run
+   `python3 postprocessing/run_pipeline.py --experiment-id <ID> --csv <download> --require-prolific-id`.
+   In `results/exp_<ID>/participants_*.csv` expect one row for you with `n_trials` equal to
+   the number of trials you completed and `device`/`hand` from the survey; the pipeline's
+   last step (`check_reading_measures.py`) verifies the reading measures themselves and fails
+   loudly if anything is inconsistent.
+3. Exclude that test participant from the real analysis.
 
 ## Tests
 
 ```bash
 npm test                     # JS unit tests (node:test, Node >= 22): codecs, hit test,
                              #   recorder, decoder, legacy equivalence, cross-language fixtures,
-                             #   and a headless-Chrome check when Chrome is installed
+                             #   submission rows, and a headless-Chrome check when Chrome is installed
 npm run test:perf            # strict throughput / payload-size thresholds
 python -m pip install -r postprocessing/requirements-dev.txt
-python -m pytest postprocessing          # Python decoder + pipeline tests (add -m slow for the
-                                         #   end-to-end run over simulated data)
+python -m pytest postprocessing          # Python decoder + pipeline tests, including the
+                                         #   end-to-end run over simulated data (-m "not slow" skips it)
 ```
 
 The JS and Python implementations of the `motr-ce/1` format are pinned to each other by

@@ -227,7 +227,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--experiment-id", required=True, help="magpie experiment ID (magpie.config.js)")
     src = parser.add_mutually_exclusive_group(required=True)
-    src.add_argument("--csv", type=Path, help="CSV export of the magpie results table")
+    src.add_argument("--csv", type=Path, help="CSV export: magpie-serverless download or classic results-table dump (auto-detected)")
     src.add_argument("--db", action="store_true", help="read from the magpie database (see docstring)")
     parser.add_argument("--materials-dir", type=Path, default=ROOT / "materials")
     parser.add_argument("--out-dir", type=Path, default=None, help="default: results/exp_<ID>/")

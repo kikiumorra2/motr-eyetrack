@@ -131,7 +131,7 @@ def simulate_trial(rng, trial, trial_idx, exp_data, sample_ms, options, fmt):
     opts = trial["options"].split("|") if trial.get("options") else options
     response = trial["correct"] if trial.get("correct") and rng.random() < 0.9 else rng.choice(opts)
     rows.append({**base, "TrialId": trial_idx, "TrialType": "trial", "Phase": "practice" if trial["condition_id"] == "practice" else "main",
-                 "TrialText": trial["text"], "userResponse": response, "correctResponse": trial.get("correct") or "NA",
+                 "TrialText": trial["text"], "userResponse": response, "correctResponse": trial.get("correct") or "",
                  "readingTime": t_end - T_START, "ListId": exp_data["ListId"], "responseTime": t_end + 1500,
                  "zoomPercent": 100, "devicePixelRatio": 2, "windowInnerWidth": 1440, "windowInnerHeight": 900})
     return rows
