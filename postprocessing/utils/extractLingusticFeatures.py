@@ -22,7 +22,9 @@ class FeatureExtractor:
 
         self.output_path = output_data_path
         self.output_df = pd.read_csv(self.input_path_trial, na_values=["NA"])
-        self.output_name_stem = self.input_path_associations.stem.split("_")[1]
+        # reader_<participant>_clean.csv -> <participant>; the id itself may contain underscores
+        stem = self.input_path_associations.stem
+        self.output_name_stem = stem[len("reader_"):-len("_clean")] if stem.startswith("reader_") and stem.endswith("_clean") else stem.split("_")[1]
         self.threshold = association_threshold
 
         self.input_df_ff = self.input_df_f.loc[

@@ -29,7 +29,7 @@ EXPECTED = pd.DataFrame(
              "right_bounded_rt", "go_past_time", "FPFix", "FPReg", "RegIn_incl", "RegIn_excl"])
 
 
-def sample_rows(scanpath, subject="s1", item="7_a", cond="a", t0=1000, step=50):
+def sample_rows(scanpath, subject="p_01", item="7_a", cond="a", t0=1000, step=50):
     words = SENTENCE.split()
     base = {"submission_id": subject, "Experiment": "x", "Condition": cond, "ItemId": item, "mousePositionX": 300, "mousePositionY": 150}
     rows, t = [], t0
@@ -53,8 +53,9 @@ def worked_example(tmp_path_factory):
     out = tmp / "out"
     subprocess.run([sys.executable, str(PP / "2_compute_reading_measures.py"), "--experiment-id", "0", "--in-file", str(flat),
                     "--trial-file", str(items), "--out-dir", str(out)], check=True, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    measures = pd.read_csv(out / "exp_0" / "reading_measures" / "reader_s1_reading_measures.csv")
-    assoc = pd.read_csv(out / "exp_0" / "associations" / "reader_s1_clean.csv", dtype={"sbm_id": str, "para_nr": str})
+    # the participant id contains underscores: the file name must keep it whole
+    measures = pd.read_csv(out / "exp_0" / "reading_measures" / "reader_p_01_reading_measures.csv")
+    assoc = pd.read_csv(out / "exp_0" / "associations" / "reader_p_01_clean.csv", dtype={"sbm_id": str, "para_nr": str})
     return measures, assoc
 
 
@@ -71,7 +72,7 @@ def test_worked_example_matches_the_documentation(worked_example):
 def test_worked_example_passes_invariants_and_reference(worked_example):
     measures, assoc = worked_example
     assert crm.invariant_violations(measures) == []
-    m = measures.assign(submission_id="s1")
+    m = measures.assign(submission_id="p_01")
     assert crm.compare_with_reference(m, assoc).empty
 
 
@@ -108,7 +109,7 @@ def test_invariants_catch_each_kind_of_corruption(worked_example):
 
 def test_reference_comparison_catches_a_wrong_value(worked_example):
     measures, assoc = worked_example
-    m = measures.assign(submission_id="s1")
+    m = measures.assign(submission_id="p_01")
     diff = crm.compare_with_reference(_break(m, 4, go_past_time=1250), assoc)
     assert len(diff) == 1 and int(diff["word_nr"].iloc[0]) == 4 and int(diff["go_past_time_ref"].iloc[0]) == 1300
 
@@ -116,14 +117,14 @@ def test_reference_comparison_catches_a_wrong_value(worked_example):
 def test_cli(worked_example, tmp_path):
     measures, assoc = worked_example
     f = tmp_path / "m.csv"
-    measures.assign(submission_id="s1").to_csv(f, index=False)
+    measures.assign(submission_id="p_01").to_csv(f, index=False)
     adir = tmp_path / "assoc"
     adir.mkdir()
-    assoc.to_csv(adir / "reader_s1_clean.csv", index=False)
+    assoc.to_csv(adir / "reader_p_01_clean.csv", index=False)
     r = subprocess.run([sys.executable, str(PP / "check_reading_measures.py"), "--file", str(f), "--associations-dir", str(adir)],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     assert r.returncode == 0 and "invariants: OK" in r.stdout and "every measure matches" in r.stdout, r.stdout
-    _break(measures.assign(submission_id="s1"), 0, first_duration=250).to_csv(f, index=False)
+    _break(measures.assign(submission_id="p_01"), 0, first_duration=250).to_csv(f, index=False)
     r = subprocess.run([sys.executable, str(PP / "check_reading_measures.py"), "--file", str(f), "--associations-dir", str(adir)],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     assert r.returncode == 1 and "INVARIANTS VIOLATED" in r.stdout and "DIFFERS" in r.stdout
