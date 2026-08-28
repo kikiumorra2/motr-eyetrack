@@ -3,8 +3,12 @@
 Step 1 - turn raw magpie submissions into one flat CSV of mouse samples.
 
 Input, one of:
-  --csv FILE   a CSV export of the magpie results table (columns id, experiment_id,
-               results, ...). `results` holds the submitted rows as a JSON array.
+  --csv FILE   a CSV export, in either format (detected from the columns):
+               * magpie-serverless "download results": already flattened, one line per
+                 submitted row, with a `submission_id` column grouping the rows of one
+                 submission (this is what https://magpie-serverless.vercel.app produces);
+               * classic magpie-backend results table: columns id, experiment_id, results,
+                 where `results` holds one submission's rows as a JSON array.
   --db         read the same table straight from the magpie Postgres database. Needs
                psycopg2 and the environment variables MOTR_DB_NAME, MOTR_DB_USER,
                MOTR_DB_PASS, MOTR_DB_HOST (optionally MOTR_DB_TABLE, default "results").
@@ -73,13 +77,22 @@ def parse_results_cell(cell):
 
 
 def read_csv_export(path, experiment_id):
-    df = pd.read_csv(path, dtype=str)
+    """Submissions as [{"id", "results"}] from either export format (see the module docstring)."""
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)   # empty cells stay "" (magpie's own filler)
     if "experiment_id" in df.columns and experiment_id is not None:
         df = df[df["experiment_id"].astype(str) == str(experiment_id)]
-    return [
-        {"id": row.get("id"), "results": row["results"]}
-        for row in df.to_dict("records")
-    ]
+    if "results" in df.columns:
+        # classic magpie-backend table: one line per submission, rows as a JSON array
+        return [{"id": row.get("id"), "results": row["results"]} for row in df.to_dict("records")]
+    if "submission_id" in df.columns:
+        # magpie-serverless: one line per row; a submission's rows are consecutive and share submission_id
+        records = []
+        for sid, group in df.groupby("submission_id", sort=False):
+            rows = group.drop(columns=["submission_id", "experiment_id"], errors="ignore").to_dict("records")
+            records.append({"id": sid, "results": rows})
+        return records
+    sys.exit("unrecognised export: expected a 'results' column (magpie-backend table) "
+             "or a 'submission_id' column (magpie-serverless download)")
 
 
 def read_db(experiment_id):
@@ -176,6 +189,9 @@ def flatten_all(records, char_events="auto", resample_ms=None):
             df[col] = np.nan
     # Keep each participant's samples together and in the order they were recorded.
     df["experiment_start_time"] = pd.to_numeric(df["experiment_start_time"], errors="coerce")
+    ids = pd.to_numeric(df["submission_row_id"], errors="coerce")
+    if ids.notna().all():
+        df["submission_row_id"] = ids                                # numeric order, not "9" > "10"
     df = df.sort_values(["SubjectId", "experiment_start_time", "submission_row_id"], kind="stable")
     char_df = pd.concat(char_frames, ignore_index=True) if char_frames else pd.DataFrame()
     if len(char_df):

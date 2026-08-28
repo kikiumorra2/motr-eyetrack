@@ -122,9 +122,13 @@ of completed trials.
 
 ## Getting the data off the server
 
-- **CSV export** (`--csv`): a dump of the magpie results table with columns `id`,
-  `experiment_id`, `results`, … where `results` holds each submission as a JSON array of rows
-  (plain JSON or Postgres' `{"{\"...\"}"}` array syntax are both accepted).
+- **CSV export** (`--csv`), either format (detected from the columns):
+  - the **magpie-serverless** "download results" file (https://magpie-serverless.vercel.app):
+    already flattened, one line per submitted row, with a `submission_id` column that groups
+    the rows of one submission;
+  - a dump of the classic magpie-backend results table with columns `id`, `experiment_id`,
+    `results`, … where `results` holds each submission as a JSON array of rows (plain JSON or
+    Postgres' `{"{\"...\"}"}` array syntax are both accepted).
 - **Direct database access** (`--db`): set the environment variables `MOTR_DB_NAME`,
   `MOTR_DB_USER`, `MOTR_DB_PASS`, `MOTR_DB_HOST` (and `MOTR_DB_TABLE`, default `results`),
   install `psycopg2-binary`, and run with `--db` instead of `--csv`. Never commit credentials.

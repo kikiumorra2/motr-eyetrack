@@ -6,7 +6,7 @@ Input (one of):
   --rows rows.json   JSON array of rows as the app prints them in debug mode. In the browser
                      console: copy(JSON.stringify(window.__motrRows)) and paste into rows.json.
                      A single charEvents row (e.g. the harness's out.row) also works.
-  --csv export.csv   magpie export / scripts/simulate_results.py output (one submission per line).
+  --csv export.csv   magpie export (serverless download or classic table dump) / scripts/simulate_results.py output.
 
 Trial selection: --item ITEM [--condition COND] [--submission ID] or --trial K (K-th charEvents
 row found, default 0); --list prints the available trials.
@@ -68,9 +68,18 @@ def load_rows(rows_path: Path | None, csv_path: Path | None) -> list[dict]:
     rows = []
     csv.field_size_limit(sys.maxsize)          # a submission's `results` cell can exceed 128 KB
     with open(csv_path, newline="", encoding="utf-8") as fh:
-        for rec in csv.DictReader(fh):
-            for r in parse(rec["results"]):
-                r["submission_row_id"] = rec.get("id")
+        reader = csv.DictReader(fh)
+        if "results" in (reader.fieldnames or []):
+            # classic magpie-backend table: one line per submission, its rows as a JSON array
+            for rec in reader:
+                for r in parse(rec["results"]):
+                    r["submission_row_id"] = rec.get("id")
+                    rows.append(r)
+        else:
+            # magpie-serverless download: already one line per row, grouped by submission_id
+            for rec in reader:
+                r = dict(rec)
+                r["submission_row_id"] = r.pop("submission_id", 0)
                 rows.append(r)
     return rows
 

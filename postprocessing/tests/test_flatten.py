@@ -5,6 +5,7 @@ import random
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import motr_char_events as ce
@@ -190,6 +191,50 @@ def test_submissions_without_subjectid_are_reported():
     fixed = [{**orphan[0], "SubjectId": "s1"}] + orphan[1:]
     df, _, warns = ff.flatten_all([records[0], {"id": 2, "results": json.dumps(fixed)}], "auto")
     assert warns == [] and df["SubjectId"].isna().sum() == 0 and set(df["ItemId"]) == {"3", "4"}
+
+
+def test_read_csv_export_both_formats(tmp_path):
+    """The classic magpie-backend table dump and the flattened magpie-serverless download must
+    yield the same submissions and the same flat table."""
+    import csv
+    compact = {**char_events_row(), "SubjectId": "s1", "ListId": 1, "experiment_start_time": 1}
+    subs = [[compact, SUMMARY], [{**legacy_rows()[0], "SubjectId": "s1", "ListId": 1, "experiment_start_time": 1}] + legacy_rows()[1:] + [{**SUMMARY, "ItemId": "4"}],
+            [{**SURVEY, "SubjectId": "s1", "experiment_start_time": 1}]]
+    classic = tmp_path / "classic.csv"
+    with open(classic, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["id", "inserted_at", "updated_at", "experiment_id", "results"])
+        for i, s in enumerate(subs, 1):
+            w.writerow([i, "x", "x", "0", json.dumps(s)])
+        w.writerow([99, "x", "x", "1", json.dumps(subs[0])])                     # another experiment: filtered out
+    cols = ["submission_id"] + sorted({k for s in subs for r in s for k in r})
+    flat = tmp_path / "serverless.csv"
+    with open(flat, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for i, s in enumerate(subs, 1):
+            for r in s:
+                w.writerow({"submission_id": 1000 + i, **{k: ("" if v is None else v) for k, v in r.items()}})
+    rec_c = ff.read_csv_export(classic, "0")
+    rec_f = ff.read_csv_export(flat, "0")
+    assert [len(ce.expand_submission(ff.parse_results_cell(r["results"]))[0]) for r in rec_c] == \
+           [len(ce.expand_submission(ff.parse_results_cell(r["results"]))[0]) for r in rec_f]
+    assert [r["id"] for r in rec_c] == ["1", "2", "3"] and [r["id"] for r in rec_f] == ["1001", "1002", "1003"]
+    df_c, char_c, warns_c = ff.flatten_all(rec_c, "auto")
+    df_f, char_f, warns_f = ff.flatten_all(rec_f, "auto")
+    assert warns_c == warns_f == []
+    assert len(df_c) == len(df_f) and len(char_c) == len(char_f) > 0
+    # the classic path carries JSON numbers, the flattened one strings; both end up the same CSV
+    def canon(df):
+        out = df[["ItemId", "Index", "responseTime", "Word", "TrialType", "SubjectId"]].reset_index(drop=True).copy()
+        for c in ("Index", "responseTime"):
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+        for c in ("ItemId", "Word", "TrialType", "SubjectId"):
+            out[c] = out[c].astype("string")
+        return out
+    pd.testing.assert_frame_equal(canon(df_c), canon(df_f))
+    assert df_f["submission_row_id"].dtype.kind in "iuf"                        # numeric sort key
+    assert (df_f["SubjectId"] == "s1").all()
 
 
 def test_flatten_ignore_and_keep():
