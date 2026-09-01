@@ -156,6 +156,16 @@ export default {
     this.stopRecorder();
   },
   methods: {
+    isCorrectResponse(response){
+       const correct = String(this.trial.correct || "").trim().toUpperCase();
+      
+       if (correct === "BOTH" || correct === "NA"){
+          return true;
+       }
+       return response === correct;
+    },
+
+
     cursorEl() {
       return this.$el.querySelector(".oval-cursor");
     },
@@ -296,14 +306,23 @@ export default {
     },
 
     finishTrial() {
+      const response = this.$magpie.measurements.response || null;
+
+      const isCorrect = response
+	  ? this.isCorrectResponse(response)
+          : null;
+
       this.$magpie.addTrialData({
         ...this.baseRow(),
         TrialId: this.index,
         TrialType: "trial",
         Phase: this.trial.phase,
         TrialText: this.trial.text,
-        userResponse: this.$magpie.measurements.response || null,
+        
+        userResponse: response,
         correctResponse: this.trial.correct,
+        isCorrect: isCorrect,
+        
         readingTime: this.readingTime,
         ListId: this.listId,
         zoomPercent: zoomPercent(),
@@ -338,6 +357,7 @@ export default {
   position: relative;
   width: 100%;
   height: auto;
+  font-family: Arial, sans-serif;
   font-size: 18px;
   line-height: 40px;
 }
@@ -348,13 +368,17 @@ export default {
   /* z-index: 1; */
   position: absolute;
   color: white;
-  text-align: left;
+  text-align: center;
   font-weight: 450;
+  font-family: Menlo, monospace;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
   padding-top: 2%;
   padding-bottom: 2%;
-  padding-left: 11%;
-  padding-right: 11%;
+  padding-left: 3%;
+  padding-right: 3%;
+  white-space: nowrap;
 }
 .userInput {
   padding-top: 2%;
@@ -411,11 +435,15 @@ button {
   position: absolute;
   pointer-events: none;
   color: black;
-  text-align: left;
+  text-align: center;
   font-weight: 450;
+  font-family: Menlo, monospace;
+  width: 100%;
+  box-sizing: border-box;
   padding-top: 2%;
   padding-bottom: 2%;
-  padding-left: 11%;
-  padding-right: 11%;
+  padding-left: 3%;
+  padding-right: 3%;
+  white-space: nowrap;
 }
 </style>

@@ -1,7 +1,6 @@
 item_id,condition_id,text,question,options,correct
-f1,filler,The spy monitored a politician for several months.,,,
-f2,filler,The commissioner wrote a report for the chairman.,,,
-f3,filler,The children played in the garden until it got dark.,Did the children play indoors?,Yes|No,No
-f4,filler,The old bridge was closed for repairs last summer.,,,
-f5,filler,My neighbor bought a red bicycle at the market.,What color was the bicycle?,Red|Blue|Green,Red
-f6,filler,The orchestra performed two symphonies on Friday evening.,,,
+73,filler,"There are now rumblings that Apple might soon invade the smart watch space, though the company is maintaining its customary silence.",Which market is Apple rumored to enter?,Smart watches|Self-driving cars,Smart watches
+74,filler,"A bill was drafted and introduced into Parliament several times but met with great opposition, mostly from farmers.",Who hates the bill most?,Construction workers|Farmers,Farmers
+75,filler,"The human body can tolerate only a small range of temperature, especially when the person is engaged in vigorous activity.",At which point are people resistent to a wider range of temperature?,When sleeping|When exercising,When exercising
+76,filler,"Seeing Peter slowly advancing upon him through the air with dagger poised, he sprang upon the bulwarks to cast himself into the sea.",Did the man escape Peter's attempt to attack?,Yes|No,Yes
+77,filler,"Some months later, Michael Larson saw another opportunity to stack the odds in his favor with a dash of ingenuity.",Did Larson see more than one opportunity?,Yes|No,Yes

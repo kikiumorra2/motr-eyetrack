@@ -13,7 +13,7 @@
   config.js; server settings in magpie.config.js; materials in ../materials/.
 -->
 <template>
-  <Experiment title="Reading Experiment" translate="no">
+  <Experiment title="Reading Experiment" translate="no" wide>
     <!-- 1. Consent ---------------------------------------------------------------- -->
     <Screen
       title="Welcome"
@@ -24,8 +24,8 @@
         <div class="box"><b>Information About this Study</b></div>
         <p>
           <b>What is being investigated?</b> You are being asked to take part in a research
-          study being done at [INSTITUTION]. This study will help us learn about how people
-          read. It will take you around [DURATION] minutes to complete.
+          study being done at New York University. This study will help us learn about how people
+          read. It will take you around 30 minutes to complete.
         </p>
         <p>
           <b>Who can participate?</b> You can participate only if you are an adult native
@@ -88,8 +88,14 @@
     </Screen>
 
     <!-- 2. Browser check (zoom) -------------------------------------------------- -->
-    <Screen v-if="config.browserCheck.enabled" title="Before we start">
-      <BrowserCheck @done="browserCheckDone" />
+    <Screen 
+      v-if="config.browserCheck.enabled" 
+      title="Before we start"
+      class="instructions"
+    >
+      <div class ="browser-check-text">
+        <BrowserCheck @done="browserCheckDone" />
+      </div>
     </Screen>
 
     <!-- 3. Instructions ---------------------------------------------------------- -->
@@ -260,6 +266,18 @@ export default {
 </script>
 
 <style>
+.browser-check-text {
+  width: 40em;
+  max-width: 90%;
+  margin: 0 auto;
+  text-align: left;
+  white-space: normal;
+}
+
+.broweser-check-text * {
+  white-space: normal;
+}
+
 .experiment {
   display: flex;
   align-items: center;
