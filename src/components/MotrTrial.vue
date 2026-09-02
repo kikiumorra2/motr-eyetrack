@@ -358,7 +358,7 @@ export default {
   width: 100%;
   height: auto;
   font-family: Arial, sans-serif;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 40px;
 }
 .debugResults {
@@ -370,7 +370,7 @@ export default {
   color: white;
   text-align: center;
   font-weight: 450;
-  font-family: Menlo, monospace;
+  font-family: Consolas, monospace;
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;
@@ -437,7 +437,7 @@ button {
   color: black;
   text-align: center;
   font-weight: 450;
-  font-family: Menlo, monospace;
+  font-family: Consolas, monospace;
   width: 100%;
   box-sizing: border-box;
   padding-top: 2%;
