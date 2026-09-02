@@ -64,7 +64,7 @@
 
     <div
       class="blurry-layer"
-      style="opacity: 0.3; filter: blur(5px); transition: all 0.3s linear 0s"
+      style="opacity: 0.3; filter: blur(0.28em); transition: all 0.3s linear 0s"
     >
       {{ trial.text }}
     </div>
