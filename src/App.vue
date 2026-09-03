@@ -15,7 +15,6 @@
 <template>
   <Experiment title="Reading Experiment" translate="no" wide>
     <!-- 1. Consent ---------------------------------------------------------------- -->
-    <!-- 1. Consent ---------------------------------------------------------------- -->
 <Screen
   title="Welcome"
   class="instructions"
@@ -384,19 +383,107 @@ export default {
   align-items: center;
   justify-content: center;
 }
-.consent {
+#consent {
   width: 40em;
-  max-width: 100%;
-  margin: auto;
+  max-width: 90%;
+  margin: 0 auto;
+  box-sizing: border-box;
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #222222;
+
   text-align: left;
 }
-.consent .box {
-  background-color: lightgrey;
-  padding: 10px;
-  margin: 1em 0;
+
+
+/*
+  Only the consent document itself scrolls.
+*/
+.consent-scrollbox {
+  width: 100%;
+  height: 500px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 20px;
+
+  border: 1px solid #04abe3;
+
+  box-sizing: border-box;
+  background-color: #ffffff;
 }
-.consent ul {
-  padding-left: 30px;
+
+
+.consent-title {
+  margin: 0 0 10px 0;
+  padding: 10px;
+
+  text-align: center;
+
+  font-size: 20px;
+
+  background-color: #d9d9d9;
+}
+
+
+.study-information {
+  margin: 0 0 20px 0;
+  padding: 10px;
+
+  background-color: #d9d9d9;
+}
+
+
+.study-information p {
+  margin: 5px 0;
+}
+
+
+.section-heading {
+  margin-top: 22px;
+  margin-bottom: 8px;
+
+  font-size: 16px;
+
+  text-decoration: underline;
+}
+
+
+.consent-scrollbox p {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+
+.final-consent-statement {
+  margin-top: 24px;
+
+  font-weight: bold;
+}
+
+
+.continue-instruction {
+  margin-top: 15px;
+
+  text-align: center;
+}
+
+
+.participant-id {
+  text-align: center;
+}
+
+
+.consent-button {
+  text-align: center;
+}
+
+
+#consent a {
+  color: #005ea8;
 }
 .large {
   font-size: 24px;
