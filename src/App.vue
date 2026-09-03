@@ -15,77 +15,178 @@
 <template>
   <Experiment title="Reading Experiment" translate="no" wide>
     <!-- 1. Consent ---------------------------------------------------------------- -->
-    <Screen
-      title="Welcome"
-      class="instructions"
-      :validations="{ SubjectID: { minLength: $magpie.v.minLength(2) } }"
+    <!-- 1. Consent ---------------------------------------------------------------- -->
+<Screen
+  title="Welcome"
+  class="instructions"
+  :validations="{ SubjectID: { minLength: $magpie.v.minLength(2) } }"
+>
+  <div id="consent">
+
+    <div
+      id="consent-form"
+      class="consent-scrollbox"
     >
-      <div class="consent">
-        <div class="box"><b>Information About this Study</b></div>
-        <p>
-          <b>What is being investigated?</b> You are being asked to take part in a research
-          study being done at New York University. This study will help us learn about how people
-          read. It will take you around 30 minutes to complete.
-        </p>
-        <p>
-          <b>Who can participate?</b> You can participate only if you are an adult native
-          speaker of English.
-        </p>
-        <p>
-          <b>What am I supposed to do as a participant?</b> If you choose to be in the study,
-          you will use the computer mouse to read sentences in English and answer questions
-          about them.
-        </p>
-        <p>
-          <b>What are my rights during participation?</b> Your participation in this study is
-          voluntary. If you choose to participate, you may change your mind and leave the
-          study at any time by closing the web page. You do not have to provide reasons.
-        </p>
-        <p>
-          <b>What risks and benefits can I expect?</b> There are no foreseeable risks for
-          participating in this study.
-        </p>
-        <p>
-          <b>Will I be compensated for participating?</b> If you complete the experiment, you
-          will be compensated for your time according to the amount specified on Prolific.
-        </p>
-        <p>
-          <b>What data is collected from me and how is it used?</b> During this study, we will
-          track the position of your mouse on screen. At the end of the study you will be
-          asked to complete a brief survey. No personally identifying information will be
-          collected. The data from this study may be presented at scientific conferences and
-          published in scientific journals, as well as in online repositories. All data will
-          remain anonymous.
-        </p>
-        <p>
-          <b>Who reviewed this study?</b> This study's protocol has been approved by
-          [IRB / ETHICS COMMITTEE].
-        </p>
-        <p><b>Contact:</b> Please feel free to contact us anonymously via Prolific Direct Message.</p>
+      <h1 class="consent-title">
+        Informed Consent Form IRB-FY2020-4512
+      </h1>
 
-        <div class="box"><b>Consent Form</b></div>
-        <p>I, the participant, confirm by clicking the button below:</p>
-        <ul>
-          <li>I have read and understood the study information above.</li>
-          <li>I comply with the inclusion and exclusion criteria for participation described above.</li>
-          <li>I have had enough time to decide about my participation.</li>
-          <li>I participate in this study voluntarily and consent that my personal data be used as described above.</li>
-          <li>I understand that I can stop participating at any moment.</li>
-        </ul>
+      <div class="study-information">
+        <p>
+          <strong>Title:</strong>
+          Sources of Difficulty in Language Processing and Learning
+        </p>
 
         <p>
-          Please enter your Prolific ID to continue:&nbsp;
-          <input type="text" v-model="$magpie.measurements.SubjectID" />
+          <strong>Principal Investigator:</strong>
+          Tal Linzen, Department of Linguistics and the Center for
+          Data Science, New York University
         </p>
-
-        <div
-          v-if="$magpie.measurements.SubjectID && !$magpie.validateMeasurements.SubjectID.$invalid"
-        >
-          <p>By clicking on the button below you consent to participating in this study:</p>
-          <button @click="consent">Proceed</button>
-        </div>
       </div>
-    </Screen>
+
+      <h2 class="section-heading">
+        PURPOSE OF RESEARCH STUDY:
+      </h2>
+
+      <p>
+        The goal of the project is to measure what makes particular
+        aspects of language easier or harder to learn and understand.
+      </p>
+
+      <h2 class="section-heading">
+        PROCEDURES:
+      </h2>
+
+      <p>
+        You will be asked to read or listen to language, and answer
+        questions about what you've read or heard. The sentences may
+        be in English or in a made-up language that you will learn
+        during the experiment. The experiment involves a single
+        session that will take up to an hour; there will be up to five
+        sessions, but most participants will only participate in a
+        single session.
+      </p>
+
+      <h2 class="section-heading">
+        RISKS/DISCOMFORTS:
+      </h2>
+
+      <p>
+        The risks associated with participation in this study are no
+        greater than those encountered in daily life.
+      </p>
+
+      <h2 class="section-heading">
+        BENEFITS:
+      </h2>
+
+      <p>
+        There are no direct benefits to you from participating in this
+        study. This study may benefit society if the results lead to a
+        better understanding of what makes certain aspects of language
+        easier or harder to learn and understand.
+      </p>
+
+      <h2 class="section-heading">
+        VOLUNTARY PARTICIPATION AND RIGHT TO WITHDRAW:
+      </h2>
+
+      <p>
+        Your participation in this study is entirely voluntary: You
+        choose whether to participate. If you decide not to
+        participate, there are no penalties, and you will not lose any
+        benefits to which you would otherwise be entitled.
+      </p>
+
+      <p>
+        If you choose to participate in the study, you can stop your
+        participation at any time, without any penalty or loss of
+        benefits.
+      </p>
+
+      <h2 class="section-heading">
+        CONFIDENTIALITY:
+      </h2>
+
+      <p>
+        Any study records that identify you will be kept confidential
+        to the extent possible by law. The records from your
+        participation may be reviewed by people responsible for making
+        sure that research is done properly. Otherwise, records that
+        identify you will be available only to people working on the
+        study, unless you give permission for other people to see the
+        records.
+      </p>
+
+      <p>
+        Any study records that include your name will be kept in a
+        password-protected database. On all records of test results,
+        we will use a code number rather than your name.
+      </p>
+
+      <h2 class="section-heading">
+        COMPENSATION:
+      </h2>
+
+      <p>
+        You will receive compensation in proportion to the length of
+        the session.
+      </p>
+
+      <h2 class="section-heading">
+        IF YOU HAVE QUESTIONS OR CONCERNS:
+      </h2>
+
+      <p>
+        You can ask questions about this research study now or at any
+        time during the study, by talking to the researcher(s) working
+        with you or by emailing Dr. Tal Linzen at
+        <a href="mailto:linzen@nyu.edu">linzen@nyu.edu</a>.
+      </p>
+
+      <p>
+        If you have questions about your rights as a research
+        participant or feel that you have not been treated fairly,
+        please contact the NYU Institutional Review Board at
+        <a href="mailto:ask.humansubjects@nyu.edu">
+          ask.humansubjects@nyu.edu
+        </a>
+        or <strong>212.998.4808</strong>.
+      </p>
+
+      <p class="final-consent-statement">
+        Pressing "Continue" below means that you understand the
+        information in this consent form, and that you agree to
+        participate in this study. You have not waived any legal rights
+        you otherwise would have as a participant in a research study.
+      </p>
+    </div>
+
+    <p class="continue-instruction">
+      If you agree to participate, please enter your Prolific ID and
+      press "Continue." Otherwise, you may exit this page.
+    </p>
+
+    <p class="participant-id">
+      Prolific ID:
+      <input
+        type="text"
+        v-model="$magpie.measurements.SubjectID"
+      />
+    </p>
+
+    <div
+      class="consent-button"
+      v-if="$magpie.measurements.SubjectID &&
+            !$magpie.validateMeasurements.SubjectID.$invalid"
+    >
+      <button @click="consent">
+        Continue
+      </button>
+    </div>
+
+  </div>
+</Screen>
 
     <!-- 2. Browser check (zoom) -------------------------------------------------- -->
     <Screen 
