@@ -384,8 +384,8 @@ export default {
   justify-content: center;
 }
 #consent {
-  width: 40em;
-  max-width: 90%;
+  width: 60em;
+  max-width: 95%;
   margin: 0 auto;
   box-sizing: border-box;
 
@@ -485,9 +485,25 @@ export default {
 #consent a {
   color: #005ea8;
 }
+
+
+
+
+
+
+
+
+
+
+  
 .large {
   font-size: 24px;
 }
+
+
+
+
+  
 
 /* Prevent text selection so participants cannot drag-select the sentence. */
 * {
