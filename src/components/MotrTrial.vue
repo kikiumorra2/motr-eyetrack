@@ -358,7 +358,7 @@ export default {
   width: 100%;
   height: auto;
   font-family: Arial, sans-serif;
-  font-size: 17px;
+  font-size: 10px;
   line-height: 40px;
 }
 .debugResults {
