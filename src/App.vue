@@ -221,6 +221,7 @@
           :number="i + 1"
           :total="mainTrials.length"
           :list-id="listId"
+          :sentence-font-size="sentenceFontSize"
           @done="$magpie.nextScreen()"
         />
       </Screen>
@@ -240,6 +241,7 @@
           :number="i + 1"
           :total="mainTrials.length"
           :list-id="listId"
+          :sentence-font-size="sentenceFontSize"
           @done="$magpie.nextScreen()"
         />
       </Screen>
