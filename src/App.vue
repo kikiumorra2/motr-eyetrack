@@ -308,7 +308,7 @@ function calculateSentenceFontSize(trials){
   const ctx = canvas.getContext("2d");
 
   //this must match font size in MotrTrial.vue
-  ctx.font = 450 ${MAX_SENTENCE_FONT_SIZE}px Consolas, monospace;
+  ctx.font = `450 ${MAX_SENTENCE_FONT_SIZE}px Consolas, monospace`;
 
   let widestSentence = 0;
 
@@ -340,7 +340,7 @@ export default {
 
     const sentenceFontSize = calculateSentenceFontSize(allTrials);
 
-    console.log('[MoTR] sentence font size: ${sentenceFontSize}px');
+    console.log(`[MoTR] sentence font size: ${sentenceFontSize}px`);
     
     console.log(`[MoTR] list ${listId}: ${practiceTrials.length} practice + ${mainTrials.length} main trials`, mainTrials);
     return { config, listId, practiceTrials, mainTrials, sentenceFontSize, submitting: false };
