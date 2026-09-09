@@ -52,6 +52,7 @@
     <div
       v-if="reading"
       class="readingText"
+	  :style="{ fontSize: sentenceFontSize + 'px' }"
       @mousemove="onMouseMove"
       @mouseleave="onMouseLeave"
     >
@@ -64,7 +65,12 @@
 
     <div
       class="blurry-layer"
-      style="opacity: 0.3; filter: blur(0.28em); transition: all 0.3s linear 0s"
+      style="{
+		fontSize: sentenceFontSize + 'px',
+		opacity: 0.3, 
+		filter: 'blur(0.28em)', 
+		transition: 'all 0.3s linear 0s'
+	  }"
     >
       {{ trial.text }}
     </div>
@@ -117,6 +123,7 @@ export default {
     /** Number of main trials (for the "Sentence i of N" counter) */
     total: { type: Number, required: true },
     listId: { type: [Number, String], default: null },
+	sentenceFontSize:{type: Number, default: 16},
   },
   data() {
     return {
