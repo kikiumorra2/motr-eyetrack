@@ -1,4 +1,5 @@
 condition_id,text,question,options,list,item_id,block,RNDM,correct
+NPZ_UAMB,"After the technician called, the service stopped working almost immediately to his surprise.After the technician called, the service stopped working almost immediately to his surprise.After the technician called, the service stopped working almost immediately to his surprise.",Did the technician stop working?,Yes|No,a,7,2,NPZ,No
 NPZ_UAMB,"After the technician called, the service stopped working almost immediately to his surprise.",Did the technician stop working?,Yes|No,a,7,2,NPZ,No
 MVRR_AMB,The recent hire offered the job prepared many students for careers in media.,Did the new hire offer the job to someone?,Yes|No,a,11,2,MVRR,No
 AttachMulti,"On the fishing trip, we laughed at the uncle of the sailor who was confused about the motor on the boat.",Who got confused?,The uncle|The sailor,a,55,2,Attach,BOTH
