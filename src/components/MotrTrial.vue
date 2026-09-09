@@ -65,7 +65,7 @@
 
     <div
       class="blurry-layer"
-      style="{
+      :style="{
 		fontSize: sentenceFontSize + 'px',
 		opacity: 0.3, 
 		filter: 'blur(0.28em)', 
