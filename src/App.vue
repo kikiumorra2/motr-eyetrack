@@ -300,7 +300,7 @@ import { submitRows } from "./submit";
   
 //make the font be a function of the size of the screen so that you never have to scroll to see full sentence -->
 
-const MAX_SENTENCE_FONT_SIZE = 16;
+const MAX_SENTENCE_FONT_SIZE = 18;
 const SENTENCE_WIDTH_FRACTION = 0.90;
 
 function calculateSentenceFontSize(trials){
