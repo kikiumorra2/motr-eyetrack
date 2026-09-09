@@ -9,7 +9,7 @@ export default {
   experimentName: "eyetrack_stim_831",
 
   // Completion code shown on the final screen. Must match completionUrl in magpie.config.js.
-  completionCode: "XXXXXXXX",
+  completionCode: "C1B0Y2VH",
 
   // Which list to use when the URL has no ?LIST_ID=N parameter.
   // "random" picks uniformly among materials/lists/list_*.csv; a number picks that list.
