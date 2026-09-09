@@ -294,6 +294,37 @@ import BrowserCheck from "./components/BrowserCheck.vue";
 import { chooseListId, buildPracticeTrials, buildMainTrials } from "./materials";
 import { browserInfo } from "./browser";
 import { submitRows } from "./submit";
+  
+  
+<!-- make the font be a function of the size of the screen so that you never have to scroll to see full sentence -->
+
+const MAX_SENTENCE_FONT_SIZE = 16;
+const SENTENCE_WIDTH_FRACTION = 0.90;
+
+function calculateSentenceFontSize(trials){
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  //this must match font size in MotrTrial.vue
+  ctx.font = 450 ${MAX_SENTENCE_FONT_SIZE}px Consolas, monospace;
+
+  let widestSentence = 0;
+
+  for (const trial of trials){
+    const width = ctx.measureText(trial.text).width;
+
+    if (width > widestSentence){
+      widestSentence = width;
+    }
+  }
+
+  const availableWidth = window.innerWidth * SENTENCE_WIDTH_FRACTION;
+
+  //how much do we need to shrink the 16px so the longest sentence fits?
+  const scale = availableWidth/widestSentence;
+
+  return Math.min(MAX_SENTENCE_FONT_SIZE, MAX_SENTENCE_FONT_SIZE*scale);
+}
 
 export default {
   name: "App",
@@ -302,8 +333,15 @@ export default {
     const listId = chooseListId();
     const practiceTrials = buildPracticeTrials();
     const mainTrials = buildMainTrials(listId);
+
+    const allTrials = [...practiceTrials, ...mainTrials];
+
+    const sentenceFontSize = calculateSentenceFontSize(allTrials);
+
+    console.log('[MoTR] sentence font size: ${sentenceFontSize}px');
+    
     console.log(`[MoTR] list ${listId}: ${practiceTrials.length} practice + ${mainTrials.length} main trials`, mainTrials);
-    return { config, listId, practiceTrials, mainTrials, submitting: false };
+    return { config, listId, practiceTrials, mainTrials, sentenceFontSize, submitting: false };
   },
   created() {
     // magpie replaces the socket with a stub that raises a "no socket URL is set" warning
