@@ -123,7 +123,7 @@ export default {
     /** Number of main trials (for the "Sentence i of N" counter) */
     total: { type: Number, required: true },
     listId: { type: [Number, String], default: null },
-	sentenceFontSize:{type: Number, default: 16},
+	sentenceFontSize:{type: Number, default: 18},
   },
   data() {
     return {
