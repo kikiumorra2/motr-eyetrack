@@ -9,7 +9,7 @@ export default {
 
   // Used in 'prolific' mode: participants are redirected here after the final screen.
   // The code must match `completionCode` in src/config.js.
-  completionUrl: "https://app.prolific.com/submissions/complete?cc=XXXXXXXX",
+  completionUrl: "https://app.prolific.com/submissions/complete?cc=C1B0Y2VH",
 
   contactEmail: "you@example.edu",
 
