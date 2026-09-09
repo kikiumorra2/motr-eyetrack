@@ -414,12 +414,12 @@ button {
   transition: width 0.5s, height 0.5s;
 }
 .oval-cursor.grow.blank {
-  width: 4.444em; //original was 80px for 18px font. 80/18 = 4.444em
-  height: 0.722em; //13/18 = 0.722em
+  width: 4.444em; /*original was 80px for 18px font. 80/18 = 4.444em*/
+  height: 0.722em; /*13/18 = 0.722em*/
 }
 .oval-cursor.grow {
-  width: 5.667em; //102/18 = 5.667em
-  height: 2.111em; //38/18 = 2.111
+  width: 5.667em; /*102/18 = 5.667em*/
+  height: 2.111em; /*38/18 = 2.111*/
   border-radius: 50%;
   box-shadow: 30px 0 8px -4px rgba(255, 255, 255, 0.1),
     -30px 0 8px -4px rgba(255, 255, 255, 0.1);
