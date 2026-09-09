@@ -414,7 +414,7 @@ export default {
   white-space: normal;
 }
 
-.broweser-check-text * {
+.browser-check-text * {
   white-space: normal;
 }
 
@@ -525,13 +525,6 @@ export default {
 #consent a {
   color: #005ea8;
 }
-
-
-
-
-
-
-
 
 
 
