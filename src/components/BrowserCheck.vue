@@ -6,61 +6,30 @@
 -->
 <template>
   <div class="browser-check">
-    <template v-if="zoomOk">
-      <p>&#10003; Your browser zoom is set to 100%.</p>
-    </template>
-    <template v-else>
-      <p>
-        <b>Please set your browser zoom to 100%.</b>
-        It is currently about {{ zoom }}%.
-      </p>
-      <p>
-        Press <kbd>Ctrl</kbd> + <kbd>0</kbd> (Windows / Linux) or <kbd>&#8984;</kbd> +
-        <kbd>0</kbd> (Mac) to reset the zoom. This page updates automatically.
-      </p>
-    </template>
+    <p>
+      <b>Please reset your browser zoom to 100% before continuing.</b>
+    </p>
+
+    <p>
+      Press <kbd>Ctrl</kbd> + <kbd>0</kbd> on Windows/Linux,
+      or <kbd>&#8984;</kbd> + <kbd>0</kbd> on Mac.
+    </p>
+    
     <p>
       Please use a desktop or laptop computer with a mouse or trackpad, keep this window
       open and do not change the zoom until the study is complete.
     </p>
-    <button v-if="zoomOk" @click="$emit('done')">Continue</button>
-    <p v-else-if="canSkip">
-      <a href="#" @click.prevent="$emit('done')">I cannot change the zoom &ndash; continue anyway</a>
-    </p>
+    <button @click="$emit('done')">
+      I have reset the zoom to 100%
+    </button>
   </div>
 </template>
 
 <script>
-import config from "../config";
-import { zoomPercent } from "../browser";
 
 export default {
   name: "BrowserCheck",
-  data() {
-    return { zoom: zoomPercent(), canSkip: false, skipTimer: null };
-  },
-  computed: {
-    zoomOk() {
-      const c = config.browserCheck;
-      if (!c.requireZoom100 || this.zoom === null) return true;
-      return Math.abs(this.zoom - 100) <= c.zoomTolerance;
-    },
-  },
-  mounted() {
-    window.addEventListener("resize", this.update);
-    const seconds = config.browserCheck.allowSkipAfterSeconds;
-    if (seconds > 0) this.skipTimer = setTimeout(() => (this.canSkip = true), seconds * 1000);
-  },
-  beforeDestroy() {
-    window.removeEventListener("resize", this.update);
-    clearTimeout(this.skipTimer);
-  },
-  methods: {
-    update() {
-      this.zoom = zoomPercent();
-    },
-  },
-};
+  };
 </script>
 
 <style>
