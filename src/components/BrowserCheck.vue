@@ -82,7 +82,7 @@ export default {
   computed: {
     previewSentence() {
       //return "With schools still closed, cars still buried and streets still blocked by the widespread weekend snowstorm, officials are asking people to help out.";
-        return "START--------------------------------------------------------------------------------------------------------------------------------------------END";
+        return "START----------------------------------------------------------------------------------------------------------------------------------------------------END";
     },
   },
 };
