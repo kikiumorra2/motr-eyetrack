@@ -206,10 +206,11 @@
     <InstructionScreen title="Instructions">
       <p>
         
-        In this study, you will read sentences. Unlike in normal reading, however, the text
-        will be blurred. To bring the text into focus, move your mouse over it. <b>Feel free to go back and re-read</b> any part of the sentence at any point.
-        Take as much time as you need on any sentence — there is no rush! 
-        When you are done reading, click the <b>Done Reading</b> button.
+        In this study you will read sentences. Unlike in normal reading however, the text will be blured. 
+        Before you begin reading each sentence, click on the <b><span style="color: green;">green rectangle</span></b> to the left. Then, to bring different parts of the text into focus, 
+        move your mouse horizontally. Feel free to go back and reread any part of the sentence at any point. 
+        Take as much time as you need on any sentence - there is no rush! When you are done reading, click on the <b><span style="color: red;">red rectangle</span></b> to the right of the sentence.
+      
       </p>
 
       <p>
@@ -624,8 +625,11 @@ export default {
 }
 
 .motr-demo-video {
-  width: 800px;
-  max-width: 90vw;
+  width: 1000px;
+  max-width: 95vw;
   height: auto;
+
+  border: 4px solid black;
+  box-sizing: border-box;
 }
 </style>
