@@ -208,7 +208,7 @@
         
         In this study you will read sentences. Unlike in normal reading however, the text will be blured. 
         Before you begin reading each sentence, click on the <b><span style="color: green;">green rectangle</span></b> to the left. Then, to bring different parts of the text into focus, 
-        move your mouse horizontally. Feel free to go back and reread any part of the sentence at any point. 
+        move your mouse horizontally. <b>Feel free to go back and reread</b> any part of the sentence at any point. 
         Take as much time as you need on any sentence - there is no rush! When you are done reading, click on the <b><span style="color: red;">red rectangle</span></b> to the right of the sentence.
       
       </p>
