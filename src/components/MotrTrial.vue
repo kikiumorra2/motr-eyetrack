@@ -517,7 +517,7 @@ export default {
         recorder,
         readingTextEl: el,
         words: this.words,
-        fixedY: this.spotlightYPosition
+        fixedY: this.spotlightY()
       });
     },
 
