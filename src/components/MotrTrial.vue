@@ -516,7 +516,8 @@ export default {
       this._detachRecorder = attachRecorder({
         recorder,
         readingTextEl: el,
-        words: this.words
+        words: this.words,
+        fixedY: this.spotlightYPosition
       });
     },
 
